@@ -1,3 +1,7 @@
+// ========== CONFIGURAÇÃO DO WEBSOCKET ==========
+// Substitua pela URL do seu backend no Render (ex: "wss://chat-backend-pt9f.onrender.com")
+const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com"; // ALTERE AQUI
+
 // ========== Elementos do DOM ==========
 const loginScreen = document.getElementById("loginScreen");
 const chatScreen = document.getElementById("chatScreen");
@@ -32,10 +36,7 @@ const globalSearchInput = document.getElementById("globalSearchInput");
 const globalSearchButton = document.getElementById("globalSearchButton");
 const globalSearchResults = document.getElementById("globalSearchResults");
 
-// ========== Configuração do WebSocket ==========
-// Substitua pela URL do seu backend no Render
-const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com"; // ALTERE AQUI
-
+// ========== Função para obter a URL correta ==========
 const getWebSocketUrl = () => {
   const hostname = window.location.hostname;
   if (hostname === "localhost" || hostname === "127.0.0.1") {
@@ -50,7 +51,7 @@ let selectedAvatar = AVATAR_LIST[0];
 let currentUser = null;
 let websocket = null;
 let activeContactId = null;
-let allFriends = new Map();
+let allFriends = new Map(); // id -> { name, avatar, isOnline }
 let pendingRequests = [];
 let messageHistory = [];
 let currentTheme = "dark";
@@ -274,6 +275,12 @@ const renderFriends = (filter = "") => {
   contactsList.innerHTML = "";
   const friendsList = Array.from(allFriends.values())
     .filter(friend => friend.name.toLowerCase().includes(filter.toLowerCase()));
+  
+  if (friendsList.length === 0) {
+    contactsList.innerHTML = "<div style='padding: 16px; text-align: center; color: var(--text-secondary);'>Nenhum amigo encontrado</div>";
+    return;
+  }
+
   friendsList.forEach(friend => {
     const contactDiv = document.createElement("div");
     contactDiv.classList.add("contact-item");
@@ -293,19 +300,27 @@ const renderFriends = (filter = "") => {
     contactDiv.appendChild(avatarDiv);
     contactDiv.appendChild(infoDiv);
 
-    contactDiv.addEventListener("click", () => {
-      activeContactId = friend.id;
-      renderFriends(searchContactsInput.value);
-      chatHeaderName.textContent = friend.name;
-      chatHeaderAvatar.textContent = friend.avatar;
-      loadConversationMessages(friend.id);
-    });
+    // Handler de clique – usar uma closure para capturar o friend.id
+    contactDiv.addEventListener("click", (function(friendId, friendName, friendAvatar) {
+      return function() {
+        console.log("Clique no amigo:", friendId, friendName);
+        activeContactId = friendId;
+        // Atualizar visualmente a lista
+        renderFriends(searchContactsInput.value);
+        // Atualizar cabeçalho
+        chatHeaderName.textContent = friendName;
+        chatHeaderAvatar.textContent = friendAvatar;
+        // Carregar mensagens
+        loadConversationMessages(friendId);
+      };
+    })(friend.id, friend.name, friend.avatar));
 
     contactsList.appendChild(contactDiv);
   });
 };
 
 const loadConversationMessages = (friendId) => {
+  console.log("Carregando conversa com:", friendId);
   chatMessages.innerHTML = "";
   const convMessages = messageHistory.filter(msg => 
     (msg.userId === currentUser.id && msg.recipientId === friendId) ||
@@ -515,6 +530,7 @@ const processMessage = (data) => {
       if (!storedSession || storedSession.user.id !== currentUser.id) {
         saveSession(currentUser, loginPasswordInput.value);
       }
+      console.log("Login bem-sucedido. Amigos:", allFriends.size);
       break;
 
     case "friends_online":
@@ -686,7 +702,7 @@ const initWebSocket = (name, password, avatar) => {
   console.log("Conectando ao WebSocket:", wsUrl);
   websocket = new WebSocket(wsUrl);
   websocket.onopen = () => {
-    console.log("WebSocket conectado");
+    console.log("WebSocket conectado com sucesso!");
     websocket.send(JSON.stringify({
       type: "login",
       name,
@@ -697,15 +713,16 @@ const initWebSocket = (name, password, avatar) => {
   websocket.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === "login_failed") {
-      alert(data.reason);
+      alert(`Erro: ${data.reason}`);
       clearSession();
       return;
     }
     processMessage(data);
   };
-  websocket.onclose = () => {
-    console.log("Desconectado. Tentando reconectar...");
+  websocket.onclose = (event) => {
+    console.log("WebSocket fechado. Código:", event.code, "Motivo:", event.reason);
     if (currentUser) {
+      alert("Conexão perdida. Tentando reconectar em 3 segundos...");
       setTimeout(() => initWebSocket(name, password, avatar), 3000);
     }
   };
