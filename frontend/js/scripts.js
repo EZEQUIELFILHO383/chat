@@ -34,7 +34,7 @@ const globalSearchResults = document.getElementById("globalSearchResults");
 
 // ========== Configuração do WebSocket ==========
 // Substitua pela URL do seu backend no Render
-const PROD_WS_URL = "wss://seu-app-backend.onrender.com"; // ALTERE AQUI
+const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com"; // ALTERE AQUI
 
 const getWebSocketUrl = () => {
   const hostname = window.location.hostname;
