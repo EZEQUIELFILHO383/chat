@@ -1,0 +1,22 @@
+{
+  "mn4z4juxkhmuu7bjchn": {
+    "id": "mn4z4juxkhmuu7bjchn",
+    "name": "ezequielfilho353@gmail.com",
+    "password": "Ezequielf*#52",
+    "avatar": "😀",
+    "friends": [
+      "mn4z5bthlmllw5hht2r"
+    ],
+    "pendingRequests": []
+  },
+  "mn4z5bthlmllw5hht2r": {
+    "id": "mn4z5bthlmllw5hht2r",
+    "name": "ezequiel01",
+    "password": "ezequiel123",
+    "avatar": "😎",
+    "friends": [
+      "mn4z4juxkhmuu7bjchn"
+    ],
+    "pendingRequests": []
+  }
+}
