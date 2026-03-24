@@ -43,6 +43,7 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: width 0.2s ease;
 }
 
 .sidebar__header {
@@ -58,6 +59,13 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  overflow: hidden;
+}
+
+.user-profile span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .avatar {
@@ -74,6 +82,7 @@ body {
   background-size: cover;
   background-position: center;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .sidebar__actions {
@@ -83,17 +92,15 @@ body {
   cursor: pointer;
 }
 
-.sidebar__search {
-  padding: 12px 16px;
-  background-color: var(--bg-sidebar);
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Wrapper de busca (ícone dentro do campo) */
+.search-wrapper {
+  position: relative;
+  width: 100%;
 }
 
-.sidebar__search input {
-  flex: 1;
-  padding: 12px;
+.search-wrapper input {
+  width: 100%;
+  padding: 12px 40px 12px 16px;
   background-color: var(--input-bg);
   border: none;
   border-radius: 8px;
@@ -102,6 +109,30 @@ body {
   font-size: 0.9rem;
 }
 
+.search-wrapper .search-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
+/* Para o botão de busca global, o ícone deve ser clicável */
+.sidebar__global-search .search-icon {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Barra de busca de amigos (filtro) */
+.sidebar__search {
+  padding: 12px 16px;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Lista de amigos */
 .sidebar__contacts {
   flex: 1;
   overflow-y: auto;
@@ -132,11 +163,15 @@ body {
 
 .contact-info {
   flex: 1;
+  overflow: hidden;
 }
 
 .contact-name {
   font-weight: 500;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .contact-status {
@@ -145,37 +180,16 @@ body {
 }
 
 /* Busca global */
-.sidebar__search-users {
+.sidebar__global-search {
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
   background-color: var(--bg-sidebar);
 }
 
-.sidebar__search-users h4 {
+.sidebar__global-search h4 {
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 8px;
-}
-
-.global-search-input {
-  flex: 1;
-  padding: 8px 12px;
-  background-color: var(--input-bg);
-  border: none;
-  border-radius: 8px;
-  color: var(--text-primary);
-  outline: none;
-  font-size: 0.9rem;
-}
-
-.global-search-button {
-  background-color: var(--accent);
-  border: none;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
 }
 
 .global-search-results {
@@ -196,6 +210,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
 }
 
 .search-result-avatar {
@@ -207,10 +222,14 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .search-result-name {
   font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .add-friend-btn {
@@ -221,6 +240,7 @@ body {
   font-size: 1.2rem;
   padding: 4px;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 /* Pedidos de amizade */
@@ -253,6 +273,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
 }
 
 .pending-avatar {
@@ -264,15 +285,20 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .pending-name {
   font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pending-buttons {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .pending-buttons button {
@@ -292,13 +318,14 @@ body {
   color: #f44336;
 }
 
-/* Chat Area */
+/* Chat Area (permanece igual, mas mantemos os estilos) */
 .chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-chat);
   position: relative;
+  min-width: 0; /* evita overflow em flex */
 }
 
 .login {
@@ -313,7 +340,7 @@ body {
   background-color: var(--bg-sidebar);
   padding: 32px;
   border-radius: 16px;
-  width: 100%;
+  width: 90%;
   max-width: 400px;
   text-align: center;
 }
@@ -390,6 +417,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
 }
 
 .chat__header {
@@ -406,16 +434,27 @@ body {
   align-items: center;
   gap: 12px;
   cursor: pointer;
+  min-width: 0;
+  flex: 1;
 }
 
 .chat__header-info .avatar {
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
+}
+
+.chat__header-info div {
+  min-width: 0;
+  flex: 1;
 }
 
 .chat__header-info h3 {
   font-size: 1rem;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat__header-info span {
@@ -429,6 +468,7 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
   position: relative;
+  flex-shrink: 0;
 }
 
 .chat__messages {
@@ -575,6 +615,7 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .chat__form {
@@ -601,6 +642,7 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .chat__button span {
@@ -801,34 +843,43 @@ body {
   border-radius: 3px;
 }
 
-/* Responsividade */
+/* ========== RESPONSIVIDADE ========== */
 @media (max-width: 768px) {
   .sidebar {
     width: 80px;
     transition: width 0.2s;
   }
 
+  /* Quando a sidebar está colapsada, esconde textos e expande ao passar o mouse */
+  .sidebar:not(:hover) .user-profile span,
+  .sidebar:not(:hover) .contact-info,
+  .sidebar:not(:hover) .sidebar__global-search h4,
+  .sidebar:not(:hover) .sidebar__pending h4,
+  .sidebar:not(:hover) .search-wrapper input::placeholder,
+  .sidebar:not(:hover) .search-result-name,
+  .sidebar:not(:hover) .pending-name {
+    display: none;
+  }
+
   .sidebar:hover {
     width: 280px;
   }
 
-  .sidebar .user-profile span,
-  .sidebar .contact-info,
-  .sidebar .sidebar__search input::placeholder {
-    display: none;
-  }
-
   .sidebar:hover .user-profile span,
   .sidebar:hover .contact-info,
-  .sidebar:hover .sidebar__search input::placeholder {
+  .sidebar:hover .sidebar__global-search h4,
+  .sidebar:hover .sidebar__pending h4,
+  .sidebar:hover .search-wrapper input::placeholder,
+  .sidebar:hover .search-result-name,
+  .sidebar:hover .pending-name {
     display: block;
   }
 
-  .sidebar:hover .sidebar__search input {
+  .sidebar:hover .search-wrapper input {
     width: 100%;
   }
 
-  .sidebar__search input {
+  .search-wrapper input {
     width: 100%;
     transition: width 0.2s;
   }

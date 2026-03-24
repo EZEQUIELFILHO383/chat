@@ -32,6 +32,18 @@ const globalSearchInput = document.getElementById("globalSearchInput");
 const globalSearchButton = document.getElementById("globalSearchButton");
 const globalSearchResults = document.getElementById("globalSearchResults");
 
+// ========== Configuração do WebSocket ==========
+// Substitua pela URL do seu backend no Render
+const PROD_WS_URL = "wss://seu-app-backend.onrender.com"; // ALTERE AQUI
+
+const getWebSocketUrl = () => {
+  const hostname = window.location.hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "ws://localhost:8080";
+  }
+  return PROD_WS_URL;
+};
+
 // ========== Variáveis Globais ==========
 const AVATAR_LIST = ["😀", "😎", "🥳", "😍", "🐱", "🐶", "🦊", "🐼", "🍕", "⚽"];
 let selectedAvatar = AVATAR_LIST[0];
@@ -668,10 +680,13 @@ const sendTyping = (isTyping) => {
   }));
 };
 
+// ========== WebSocket ==========
 const initWebSocket = (name, password, avatar) => {
-  const wsUrl = "ws://localhost:8080";
+  const wsUrl = getWebSocketUrl();
+  console.log("Conectando ao WebSocket:", wsUrl);
   websocket = new WebSocket(wsUrl);
   websocket.onopen = () => {
+    console.log("WebSocket conectado");
     websocket.send(JSON.stringify({
       type: "login",
       name,
@@ -693,6 +708,9 @@ const initWebSocket = (name, password, avatar) => {
     if (currentUser) {
       setTimeout(() => initWebSocket(name, password, avatar), 3000);
     }
+  };
+  websocket.onerror = (error) => {
+    console.error("Erro no WebSocket:", error);
   };
 };
 
@@ -935,7 +953,6 @@ globalSearchButton.addEventListener("click", performGlobalSearch);
 globalSearchInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") performGlobalSearch();
 });
-// Nova melhoria: ao focar no campo, lista todos os usuários (query vazia)
 globalSearchInput.addEventListener("focus", () => {
   performGlobalSearch();
 });

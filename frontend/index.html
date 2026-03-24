@@ -21,18 +21,23 @@
           <span class="material-symbols-outlined" id="settingsButton">settings</span>
         </div>
       </div>
+
+      <!-- Barra de busca de amigos -->
       <div class="sidebar__search">
-        <span class="material-symbols-outlined">search</span>
-        <input type="text" id="searchContacts" placeholder="Pesquisar amigos">
+        <div class="search-wrapper">
+          <input type="text" id="searchContacts" placeholder="Pesquisar amigos">
+          <span class="material-symbols-outlined search-icon">search</span>
+        </div>
       </div>
+
       <div class="sidebar__contacts" id="contactsList"></div>
 
-      <!-- Busca global de usuários -->
-      <div class="sidebar__search-users">
+      <!-- Busca global de novos amigos -->
+      <div class="sidebar__global-search">
         <h4>Encontrar novos amigos</h4>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="globalSearchInput" placeholder="Digite o nome do usuário" class="global-search-input">
-          <button id="globalSearchButton" class="global-search-button">Buscar</button>
+        <div class="search-wrapper">
+          <input type="text" id="globalSearchInput" placeholder="Digite o nome do usuário">
+          <span class="material-symbols-outlined search-icon" id="globalSearchButton">search</span>
         </div>
         <div id="globalSearchResults" class="global-search-results"></div>
       </div>
