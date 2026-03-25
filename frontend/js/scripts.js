@@ -35,7 +35,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 const globalSearchInput = document.getElementById("globalSearchInput");
 const globalSearchButton = document.getElementById("globalSearchButton");
 const globalSearchResults = document.getElementById("globalSearchResults");
-const backButton = document.getElementById("backButton");
+const backButton = document.getElementById("backButton"); // <-- elemento do botão voltar
 
 // ========== Função para obter a URL correta ==========
 const getWebSocketUrl = () => {
@@ -52,8 +52,6 @@ const isMobile = () => window.innerWidth <= 768;
 function showConversationsView() {
   if (isMobile()) {
     document.body.classList.remove("chat-active");
-    // Reset activeContactId para não ficar selecionado
-    // activeContactId = null;
   }
 }
 
@@ -997,10 +995,14 @@ globalSearchInput.addEventListener("focus", () => {
   performGlobalSearch();
 });
 
-// Botão voltar no mobile
-backButton.addEventListener("click", () => {
-  showConversationsView();
-});
+// Botão voltar no mobile (apenas se existir)
+if (backButton) {
+  backButton.addEventListener("click", () => {
+    showConversationsView();
+  });
+} else {
+  console.warn("Elemento backButton não encontrado. Verifique se o HTML inclui <button id='backButton'>");
+}
 
 // ========== Inicialização ==========
 renderAvatarOptions();
@@ -1010,7 +1012,6 @@ attemptAutoLogin();
 // Ajuste de responsividade ao redimensionar
 window.addEventListener("resize", () => {
   if (!isMobile()) {
-    // Se a janela aumentar para desktop, força a lista de conversas a ficar visível (sem overrides)
     document.body.classList.remove("chat-active");
   }
 });
