@@ -1,8 +1,8 @@
-// ========== CONFIGURAÇÃO DO WEBSOCKET ==========
-// 🔴 ALTERE ESTA URL PARA A URL DO SEU BACKEND NO RENDER (ex: "wss://chat-backend-pt9f.onrender.com")
-const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com"; // <--- SUBSTITUA AQUI
+// ========== CONFIGURAÇÃO ==========
+// 🔴 ALTERE ESTA URL PARA A DO SEU BACKEND NO RENDER (ex: "wss://chat-backend-pt9f.onrender.com")
+const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com";
 
-// ========== Elementos do DOM ==========
+// ========== ELEMENTOS DOM ==========
 const loginScreen = document.getElementById("loginScreen");
 const chatScreen = document.getElementById("chatScreen");
 const loginForm = document.getElementById("loginForm");
@@ -35,79 +35,49 @@ const logoutBtn = document.getElementById("logoutBtn");
 const globalSearchInput = document.getElementById("globalSearchInput");
 const globalSearchButton = document.getElementById("globalSearchButton");
 const globalSearchResults = document.getElementById("globalSearchResults");
-const backButton = document.getElementById("backButton"); // <-- elemento do botão voltar
+const backButton = document.getElementById("backButton");
 
-// ========== Função para obter a URL correta ==========
+// ========== FUNÇÕES AUXILIARES ==========
 const getWebSocketUrl = () => {
   const hostname = window.location.hostname;
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "ws://localhost:8080";
-  }
+  if (hostname === "localhost" || hostname === "127.0.0.1") return "ws://localhost:8080";
   return PROD_WS_URL;
 };
-
-// ========== Controle de navegação mobile ==========
 const isMobile = () => window.innerWidth <= 768;
+const showConversationsView = () => { if (isMobile()) document.body.classList.remove("chat-active"); };
+const showChatView = () => { if (isMobile()) document.body.classList.add("chat-active"); };
 
-function showConversationsView() {
-  if (isMobile()) {
-    document.body.classList.remove("chat-active");
-  }
-}
-
-function showChatView() {
-  if (isMobile()) {
-    document.body.classList.add("chat-active");
-  }
-}
-
-// ========== Variáveis Globais ==========
+// ========== VARIÁVEIS GLOBAIS ==========
 const AVATAR_LIST = ["😀", "😎", "🥳", "😍", "🐱", "🐶", "🦊", "🐼", "🍕", "⚽"];
 let selectedAvatar = AVATAR_LIST[0];
 let currentUser = null;
 let websocket = null;
 let activeContactId = null;
-let allFriends = new Map(); // id -> { name, avatar, isOnline }
+let allFriends = new Map();
 let pendingRequests = [];
 let messageHistory = [];
 let currentTheme = "dark";
 let notificationsEnabled = true;
 let showTime = true;
-
 let currentMessage = null;
 let replyToMessage = null;
 let lastReadId = null;
 let typingTimeout;
 
-// ========== Funções Auxiliares ==========
-const formatTime = (timestamp) => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-};
-const scrollToBottom = () => {
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-};
-const escapeHtml = (text) => {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-};
+// ========== FUNÇÕES BÁSICAS ==========
+const formatTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const scrollToBottom = () => { chatMessages.scrollTop = chatMessages.scrollHeight; };
+const escapeHtml = (text) => { const div = document.createElement("div"); div.textContent = text; return div.innerHTML; };
 
-// ========== Salvar/Ler Configurações ==========
-const saveSettings = () => {
-  localStorage.setItem("chatSettings", JSON.stringify({
-    theme: currentTheme,
-    notifications: notificationsEnabled,
-    showTime: showTime
-  }));
-};
+// ========== CONFIGURAÇÕES ==========
+const saveSettings = () => localStorage.setItem("chatSettings", JSON.stringify({ theme: currentTheme, notifications: notificationsEnabled, showTime }));
 const loadSettings = () => {
   const saved = localStorage.getItem("chatSettings");
   if (saved) {
-    const settings = JSON.parse(saved);
-    currentTheme = settings.theme;
-    notificationsEnabled = settings.notifications;
-    showTime = settings.showTime;
+    const s = JSON.parse(saved);
+    currentTheme = s.theme;
+    notificationsEnabled = s.notifications;
+    showTime = s.showTime;
     applyTheme();
     document.getElementById("themeSelect").value = currentTheme;
     document.getElementById("notificationsToggle").checked = notificationsEnabled;
@@ -115,33 +85,20 @@ const loadSettings = () => {
   }
 };
 const applyTheme = () => {
-  if (currentTheme === "light") {
-    document.body.classList.add("light-theme");
-  } else {
-    document.body.classList.remove("light-theme");
-  }
+  if (currentTheme === "light") document.body.classList.add("light-theme");
+  else document.body.classList.remove("light-theme");
 };
 
-// ========== Gerenciamento de Sessão ==========
-const saveSession = (user, password) => {
-  localStorage.setItem("chatSession", JSON.stringify({ user, password }));
-};
-const clearSession = () => {
-  localStorage.removeItem("chatSession");
-};
+// ========== SESSÃO ==========
+const saveSession = (user, pwd) => localStorage.setItem("chatSession", JSON.stringify({ user, password: pwd }));
+const clearSession = () => localStorage.removeItem("chatSession");
 const getStoredSession = () => {
-  const session = localStorage.getItem("chatSession");
-  if (session) {
-    try {
-      return JSON.parse(session);
-    } catch (e) {
-      return null;
-    }
-  }
+  const s = localStorage.getItem("chatSession");
+  if (s) try { return JSON.parse(s); } catch(e) { return null; }
   return null;
 };
 
-// ========== Logout ==========
+// ========== LOGOUT ==========
 const logout = () => {
   if (websocket) websocket.close();
   clearSession();
@@ -162,18 +119,17 @@ const logout = () => {
   showConversationsView();
 };
 
-// ========== Criação de Elemento de Mensagem ==========
-const createMessageElement = (message, isSelf) => {
+// ========== MENSAGENS ==========
+const createMessageElement = (msg, isSelf) => {
   const div = document.createElement("div");
-  div.classList.add("message");
-  div.classList.add(isSelf ? "message--self" : "message--other");
-  div.dataset.messageId = message.id;
+  div.classList.add("message", isSelf ? "message--self" : "message--other");
+  div.dataset.messageId = msg.id;
 
   const avatarDiv = document.createElement("div");
   avatarDiv.classList.add("message__avatar");
-  avatarDiv.textContent = message.userAvatar || "?";
-  if (message.userAvatar && !message.userAvatar.match(/[\u{1F600}-\u{1F64F}]/u)) {
-    avatarDiv.style.backgroundImage = `url(${message.userAvatar})`;
+  avatarDiv.textContent = msg.userAvatar || "?";
+  if (msg.userAvatar && !msg.userAvatar.match(/[\u{1F600}-\u{1F64F}]/u)) {
+    avatarDiv.style.backgroundImage = `url(${msg.userAvatar})`;
     avatarDiv.style.backgroundSize = "cover";
     avatarDiv.textContent = "";
   }
@@ -181,41 +137,41 @@ const createMessageElement = (message, isSelf) => {
   const bubbleDiv = document.createElement("div");
   bubbleDiv.classList.add("message__bubble");
 
-  if (message.replyTo) {
-    const replyMsg = messageHistory.find(m => m.id === message.replyTo);
-    if (replyMsg && !replyMsg.deleted) {
-      const replyPreview = document.createElement("div");
-      replyPreview.classList.add("message__reply-preview");
-      replyPreview.innerHTML = `<strong>${escapeHtml(replyMsg.userName)}</strong>: ${escapeHtml(replyMsg.content.substring(0, 50))}${replyMsg.content.length > 50 ? '...' : ''}`;
-      bubbleDiv.appendChild(replyPreview);
+  if (msg.replyTo) {
+    const reply = messageHistory.find(m => m.id === msg.replyTo);
+    if (reply && !reply.deleted) {
+      const preview = document.createElement("div");
+      preview.classList.add("message__reply-preview");
+      preview.innerHTML = `<strong>${escapeHtml(reply.userName)}</strong>: ${escapeHtml(reply.content.substring(0, 50))}${reply.content.length > 50 ? "..." : ""}`;
+      bubbleDiv.appendChild(preview);
     }
   }
 
   if (!isSelf) {
     const senderSpan = document.createElement("span");
     senderSpan.classList.add("message__sender");
-    senderSpan.textContent = message.userName;
+    senderSpan.textContent = msg.userName;
     bubbleDiv.appendChild(senderSpan);
   }
 
-  if (message.type === 'file_message') {
-    if (message.fileType === 'image') {
-      const img = document.createElement('img');
-      img.src = message.fileData;
-      img.classList.add('message__file-image');
-      img.addEventListener('click', () => window.open(message.fileData, '_blank'));
+  if (msg.type === "file_message") {
+    if (msg.fileType === "image") {
+      const img = document.createElement("img");
+      img.src = msg.fileData;
+      img.classList.add("message__file-image");
+      img.addEventListener("click", () => window.open(msg.fileData, "_blank"));
       bubbleDiv.appendChild(img);
     } else {
-      const fileLink = document.createElement('a');
-      fileLink.href = message.fileData;
-      fileLink.download = message.fileName;
-      fileLink.textContent = `📎 ${message.fileName}`;
-      bubbleDiv.appendChild(fileLink);
+      const link = document.createElement("a");
+      link.href = msg.fileData;
+      link.download = msg.fileName;
+      link.textContent = `📎 ${msg.fileName}`;
+      bubbleDiv.appendChild(link);
     }
   } else {
     const textSpan = document.createElement("span");
     textSpan.classList.add("message__text");
-    textSpan.innerHTML = message.deleted ? "<em>Mensagem excluída</em>" : escapeHtml(message.content);
+    textSpan.innerHTML = msg.deleted ? "<em>Mensagem excluída</em>" : escapeHtml(msg.content);
     bubbleDiv.appendChild(textSpan);
   }
 
@@ -224,45 +180,37 @@ const createMessageElement = (message, isSelf) => {
   footer.style.alignItems = "center";
   footer.style.justifyContent = "flex-end";
   footer.style.gap = "4px";
-
   if (showTime) {
     const timeSpan = document.createElement("span");
     timeSpan.classList.add("message__time");
-    timeSpan.textContent = formatTime(message.timestamp);
+    timeSpan.textContent = formatTime(msg.timestamp);
     footer.appendChild(timeSpan);
   }
-
-  if (message.edited) {
+  if (msg.edited) {
     const editedSpan = document.createElement("span");
     editedSpan.classList.add("message__edited");
     editedSpan.textContent = "editado";
     footer.appendChild(editedSpan);
   }
-
-  if (isSelf && !message.deleted) {
-    const readStatus = document.createElement("span");
-    readStatus.classList.add("message__read-status");
-    if (message.readBy && message.readBy.length > 1) {
-      readStatus.innerHTML = '<span class="material-symbols-outlined">done_all</span>';
-    } else {
-      readStatus.innerHTML = '<span class="material-symbols-outlined">done</span>';
-    }
-    footer.appendChild(readStatus);
+  if (isSelf && !msg.deleted) {
+    const statusSpan = document.createElement("span");
+    statusSpan.classList.add("message__read-status");
+    statusSpan.innerHTML = msg.readBy && msg.readBy.length > 1 ? '<span class="material-symbols-outlined">done_all</span>' : '<span class="material-symbols-outlined">done</span>';
+    footer.appendChild(statusSpan);
   }
-
   bubbleDiv.appendChild(footer);
 
-  if (message.reactions && Object.keys(message.reactions).length > 0) {
+  if (msg.reactions && Object.keys(msg.reactions).length) {
     const reactionsDiv = document.createElement("div");
     reactionsDiv.classList.add("message__reactions");
-    for (const [emoji, users] of Object.entries(message.reactions)) {
+    for (const [emoji, users] of Object.entries(msg.reactions)) {
       const reactionSpan = document.createElement("span");
       reactionSpan.classList.add("message__reaction");
       reactionSpan.textContent = `${emoji} ${users.length}`;
       reactionSpan.addEventListener("click", (e) => {
         e.stopPropagation();
-        const alreadyReacted = users.includes(currentUser.id);
-        sendReaction(message.id, emoji, !alreadyReacted);
+        const already = users.includes(currentUser.id);
+        sendReaction(msg.id, emoji, !already);
       });
       reactionsDiv.appendChild(reactionSpan);
     }
@@ -271,88 +219,67 @@ const createMessageElement = (message, isSelf) => {
 
   div.appendChild(avatarDiv);
   div.appendChild(bubbleDiv);
-
-  div.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    showMessageContextMenu(e, message);
-  });
-
+  div.addEventListener("contextmenu", (e) => { e.preventDefault(); showMessageContextMenu(e, msg); });
   return div;
 };
 
-const addMessageToChat = (message) => {
-  const isSelf = message.userId === currentUser.id;
-  const msgElement = createMessageElement(message, isSelf);
-  chatMessages.appendChild(msgElement);
+const addMessageToChat = (msg) => {
+  const isSelf = msg.userId === currentUser.id;
+  const el = createMessageElement(msg, isSelf);
+  chatMessages.appendChild(el);
   scrollToBottom();
 };
 
-// ========== Renderizar lista de amigos ==========
+// ========== AMIGOS ==========
 const renderFriends = (filter = "") => {
   contactsList.innerHTML = "";
-  const friendsList = Array.from(allFriends.values())
-    .filter(friend => friend.name.toLowerCase().includes(filter.toLowerCase()));
-  
-  if (friendsList.length === 0) {
-    contactsList.innerHTML = "<div style='padding: 16px; text-align: center; color: var(--text-secondary);'>Nenhum amigo encontrado</div>";
+  const list = Array.from(allFriends.values()).filter(f => f.name.toLowerCase().includes(filter.toLowerCase()));
+  if (!list.length) {
+    contactsList.innerHTML = "<div style='padding:16px;text-align:center;color:var(--text-secondary);'>Nenhum amigo encontrado</div>";
     return;
   }
-
-  friendsList.forEach(friend => {
-    const contactDiv = document.createElement("div");
-    contactDiv.classList.add("contact-item");
-    if (activeContactId === friend.id) contactDiv.classList.add("active");
-
-    contactDiv.dataset.friendId = friend.id;
-    contactDiv.dataset.friendName = friend.name;
-    contactDiv.dataset.friendAvatar = friend.avatar;
+  list.forEach(f => {
+    const div = document.createElement("div");
+    div.classList.add("contact-item");
+    if (activeContactId === f.id) div.classList.add("active");
+    div.dataset.friendId = f.id;
+    div.dataset.friendName = f.name;
+    div.dataset.friendAvatar = f.avatar;
 
     const avatarDiv = document.createElement("div");
     avatarDiv.classList.add("avatar");
-    avatarDiv.textContent = friend.avatar;
+    avatarDiv.textContent = f.avatar;
 
     const infoDiv = document.createElement("div");
     infoDiv.classList.add("contact-info");
-    infoDiv.innerHTML = `
-      <div class="contact-name">${escapeHtml(friend.name)}</div>
-      <div class="contact-status">${friend.isOnline ? "online" : "offline"}</div>
-    `;
+    infoDiv.innerHTML = `<div class="contact-name">${escapeHtml(f.name)}</div><div class="contact-status">${f.isOnline ? "online" : "offline"}</div>`;
 
-    contactDiv.appendChild(avatarDiv);
-    contactDiv.appendChild(infoDiv);
-
-    contactDiv.addEventListener("click", (e) => {
-      const friendId = e.currentTarget.dataset.friendId;
-      const friendName = e.currentTarget.dataset.friendName;
-      const friendAvatar = e.currentTarget.dataset.friendAvatar;
-
-      if (!friendId) return;
-
-      activeContactId = friendId;
+    div.appendChild(avatarDiv);
+    div.appendChild(infoDiv);
+    div.addEventListener("click", (e) => {
+      const fid = e.currentTarget.dataset.friendId;
+      if (!fid) return;
+      activeContactId = fid;
       renderFriends(searchContactsInput.value);
-      chatHeaderName.textContent = friendName;
-      chatHeaderAvatar.textContent = friendAvatar;
-      loadConversationMessages(friendId);
-      showChatView(); // Abre a conversa no mobile
+      chatHeaderName.textContent = e.currentTarget.dataset.friendName;
+      chatHeaderAvatar.textContent = e.currentTarget.dataset.friendAvatar;
+      loadConversationMessages(fid);
+      showChatView();
     });
-
-    contactsList.appendChild(contactDiv);
+    contactsList.appendChild(div);
   });
 };
 
-const loadConversationMessages = (friendId) => {
+const loadConversationMessages = (fid) => {
   chatMessages.innerHTML = "";
-  const convMessages = messageHistory.filter(msg => 
-    (msg.userId === currentUser.id && msg.recipientId === friendId) ||
-    (msg.userId === friendId && msg.recipientId === currentUser.id)
-  );
-  convMessages.forEach(msg => addMessageToChat(msg));
+  const conv = messageHistory.filter(m => (m.userId === currentUser.id && m.recipientId === fid) || (m.userId === fid && m.recipientId === currentUser.id));
+  conv.forEach(m => addMessageToChat(m));
   observer.disconnect();
   observeNewMessages();
   sendReadReceipt();
 };
 
-// ========== Renderizar pedidos pendentes ==========
+// ========== PEDIDOS ==========
 const renderPendingRequests = () => {
   pendingListDiv.innerHTML = "";
   if (!pendingRequests.length) {
@@ -378,43 +305,29 @@ const renderPendingRequests = () => {
   });
 };
 
-const respondToFriendRequest = (fromUserId, accept) => {
-  websocket.send(JSON.stringify({
-    type: "friend_request_response",
-    fromUserId,
-    accept,
-  }));
+const respondToFriendRequest = (from, accept) => {
+  websocket.send(JSON.stringify({ type: "friend_request_response", fromUserId: from, accept }));
 };
 
-const sendFriendRequest = (userId) => {
-  websocket.send(JSON.stringify({
-    type: "friend_request",
-    targetUserId: userId,
-  }));
+const sendFriendRequest = (uid) => {
+  websocket.send(JSON.stringify({ type: "friend_request", targetUserId: uid }));
 };
 
-const sendReaction = (messageId, emoji, add) => {
+// ========== AÇÕES DE MENSAGEM ==========
+const sendReaction = (mid, emoji, add) => {
   if (!websocket) return;
-  websocket.send(JSON.stringify({
-    type: "reaction",
-    messageId,
-    emoji,
-    add,
-  }));
+  websocket.send(JSON.stringify({ type: "reaction", messageId: mid, emoji, add }));
 };
 
 const sendReadReceipt = () => {
   if (!websocket || !activeContactId) return;
-  const messages = Array.from(chatMessages.children).reverse();
-  for (let msgDiv of messages) {
-    const msgId = msgDiv.dataset.messageId;
-    if (msgId && messageHistory.find(m => m.id === msgId)?.userId !== currentUser.id) {
-      if (lastReadId !== msgId) {
-        lastReadId = msgId;
-        websocket.send(JSON.stringify({
-          type: "read_receipt",
-          lastReadMessageId: msgId,
-        }));
+  const msgs = Array.from(chatMessages.children).reverse();
+  for (let msg of msgs) {
+    const id = msg.dataset.messageId;
+    if (id && messageHistory.find(m => m.id === id)?.userId !== currentUser.id) {
+      if (lastReadId !== id) {
+        lastReadId = id;
+        websocket.send(JSON.stringify({ type: "read_receipt", lastReadMessageId: id }));
       }
       break;
     }
@@ -422,107 +335,85 @@ const sendReadReceipt = () => {
 };
 
 const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      sendReadReceipt();
-    }
-  });
+  entries.forEach(entry => { if (entry.isIntersecting) sendReadReceipt(); });
 }, { threshold: 0.5 });
-
 const observeNewMessages = () => {
-  const messageDivs = document.querySelectorAll('.message');
-  messageDivs.forEach(div => observer.observe(div));
+  document.querySelectorAll(".message").forEach(div => observer.observe(div));
 };
 
 const handleFileUpload = (file) => {
   if (!file) return;
-  if (!activeContactId) {
-    alert("Selecione um amigo para enviar arquivo.");
-    return;
-  }
+  if (!activeContactId) { alert("Selecione um amigo para enviar arquivo."); return; }
   const reader = new FileReader();
   reader.onload = (e) => {
-    const fileData = e.target.result;
-    const fileType = file.type.split('/')[0];
+    const data = e.target.result;
+    const type = file.type.split("/")[0];
     const message = {
       type: "file_message",
       recipientId: activeContactId,
-      fileType: fileType,
+      fileType: type,
       fileName: file.name,
-      fileData: fileData,
-      thumbnail: fileType === 'image' ? fileData : null,
+      fileData: data,
+      thumbnail: type === "image" ? data : null,
       timestamp: Date.now(),
       replyTo: replyToMessage ? replyToMessage.id : null,
     };
     websocket.send(JSON.stringify(message));
     replyToMessage = null;
-    const replyIndicator = document.getElementById("replyIndicator");
-    if (replyIndicator) replyIndicator.remove();
+    const ind = document.getElementById("replyIndicator");
+    if (ind) ind.remove();
   };
   reader.readAsDataURL(file);
 };
 
-const editMessage = (messageId, newContent) => {
+const editMessage = (mid, newContent) => {
   if (!websocket) return;
-  websocket.send(JSON.stringify({
-    type: "edit_message",
-    messageId,
-    newContent,
-  }));
+  websocket.send(JSON.stringify({ type: "edit_message", messageId: mid, newContent }));
 };
-
-const deleteMessage = (messageId) => {
+const deleteMessage = (mid) => {
   if (!websocket) return;
-  websocket.send(JSON.stringify({
-    type: "delete_message",
-    messageId,
-  }));
+  websocket.send(JSON.stringify({ type: "delete_message", messageId: mid }));
 };
-
-const setReplyTo = (message) => {
-  replyToMessage = message;
-  let indicator = document.getElementById("replyIndicator");
-  if (indicator) indicator.remove();
-  indicator = document.createElement("div");
-  indicator.id = "replyIndicator";
-  indicator.className = "reply-indicator";
-  indicator.innerHTML = `Respondendo a ${escapeHtml(message.userName)}: "${escapeHtml(message.content.substring(0, 40))}..." <button id="cancelReply">✖</button>`;
-  chatInput.parentNode.insertBefore(indicator, chatInput);
+const setReplyTo = (msg) => {
+  replyToMessage = msg;
+  let ind = document.getElementById("replyIndicator");
+  if (ind) ind.remove();
+  ind = document.createElement("div");
+  ind.id = "replyIndicator";
+  ind.className = "reply-indicator";
+  ind.innerHTML = `Respondendo a ${escapeHtml(msg.userName)}: "${escapeHtml(msg.content.substring(0, 40))}..." <button id="cancelReply">✖</button>`;
+  chatInput.parentNode.insertBefore(ind, chatInput);
   document.getElementById("cancelReply")?.addEventListener("click", () => {
     replyToMessage = null;
-    indicator.remove();
+    ind.remove();
   });
   chatInput.focus();
 };
 
-// ========== Busca global ==========
+// ========== BUSCA GLOBAL ==========
 const performGlobalSearch = () => {
-  const query = globalSearchInput.value.trim();
+  const q = globalSearchInput.value.trim();
   if (!websocket) return;
-  websocket.send(JSON.stringify({
-    type: "search_users",
-    query: query
-  }));
+  websocket.send(JSON.stringify({ type: "search_users", query: q }));
 };
-
 const displaySearchResults = (users) => {
   globalSearchResults.innerHTML = "";
   if (!users.length) {
-    globalSearchResults.innerHTML = "<div style='padding: 8px; color: var(--text-secondary);'>Nenhum usuário encontrado.</div>";
+    globalSearchResults.innerHTML = "<div style='padding:8px;color:var(--text-secondary);'>Nenhum usuário encontrado.</div>";
     return;
   }
-  users.forEach(user => {
+  users.forEach(u => {
     const div = document.createElement("div");
     div.classList.add("search-result-item");
     div.innerHTML = `
       <div class="search-result-info">
-        <div class="search-result-avatar">${user.avatar}</div>
-        <span class="search-result-name">${escapeHtml(user.name)}</span>
+        <div class="search-result-avatar">${u.avatar}</div>
+        <span class="search-result-name">${escapeHtml(u.name)}</span>
       </div>
-      <button class="add-friend-btn" data-id="${user.id}">➕</button>
+      <button class="add-friend-btn" data-id="${u.id}">➕</button>
     `;
     div.querySelector(".add-friend-btn").addEventListener("click", () => {
-      sendFriendRequest(user.id);
+      sendFriendRequest(u.id);
       div.querySelector(".add-friend-btn").disabled = true;
       div.querySelector(".add-friend-btn").textContent = "✓ Enviado";
     });
@@ -530,15 +421,13 @@ const displaySearchResults = (users) => {
   });
 };
 
-// ========== Processar mensagens do servidor ==========
+// ========== PROCESSAR MENSAGENS DO SERVIDOR ==========
 const processMessage = (data) => {
   switch (data.type) {
     case "login_success":
       currentUser = data.user;
       allFriends.clear();
-      data.friends.forEach(friend => {
-        allFriends.set(friend.id, { name: friend.name, avatar: friend.avatar, isOnline: friend.isOnline });
-      });
+      data.friends.forEach(f => allFriends.set(f.id, { name: f.name, avatar: f.avatar, isOnline: f.isOnline }));
       pendingRequests = data.pendingRequests;
       renderPendingRequests();
       renderFriends();
@@ -546,245 +435,184 @@ const processMessage = (data) => {
       chatScreen.style.display = "flex";
       currentUserAvatar.textContent = currentUser.avatar;
       currentUserName.textContent = currentUser.name;
-      const storedSession = getStoredSession();
-      if (!storedSession || storedSession.user.id !== currentUser.id) {
-        saveSession(currentUser, loginPasswordInput.value);
-      }
-      // Se estiver em mobile, garante que estamos na lista de conversas
+      if (!getStoredSession() || getStoredSession().user.id !== currentUser.id) saveSession(currentUser, loginPasswordInput.value);
       showConversationsView();
       break;
-
     case "friends_online":
-      data.friends.forEach(friend => {
-        const existing = allFriends.get(friend.id);
-        if (existing) existing.isOnline = true;
-        else allFriends.set(friend.id, { ...friend, isOnline: true });
-      });
+      data.friends.forEach(f => { const ex = allFriends.get(f.id); if (ex) ex.isOnline = true; else allFriends.set(f.id, { ...f, isOnline: true }); });
       renderFriends();
       break;
-
     case "friend_status":
-      const friend = allFriends.get(data.userId);
-      if (friend) friend.isOnline = data.isOnline;
+      const f = allFriends.get(data.userId);
+      if (f) f.isOnline = data.isOnline;
       renderFriends();
       break;
-
     case "friend_request_received":
       pendingRequests.push({ from: data.from });
       renderPendingRequests();
       break;
-
     case "friend_added":
       allFriends.set(data.friend.id, { ...data.friend, isOnline: false });
-      pendingRequests = pendingRequests.filter(req => req.from.id !== data.friend.id);
+      pendingRequests = pendingRequests.filter(r => r.from.id !== data.friend.id);
       renderPendingRequests();
       renderFriends();
       break;
-
     case "friend_request_rejected":
       alert(`Pedido de amizade rejeitado por ${data.by}`);
-      pendingRequests = pendingRequests.filter(req => req.from.id !== data.by);
+      pendingRequests = pendingRequests.filter(r => r.from.id !== data.by);
       renderPendingRequests();
       break;
-
     case "history":
       messageHistory = data.messages;
       if (activeContactId) loadConversationMessages(activeContactId);
       break;
-
     case "message":
     case "file_message":
       messageHistory.push(data);
-      if ((data.userId === activeContactId && data.recipientId === currentUser.id) ||
-          (data.recipientId === activeContactId && data.userId === currentUser.id)) {
+      if ((data.userId === activeContactId && data.recipientId === currentUser.id) || (data.recipientId === activeContactId && data.userId === currentUser.id)) {
         addMessageToChat(data);
         observeNewMessages();
       } else if (data.userId === currentUser.id && data.recipientId === activeContactId) {
         addMessageToChat(data);
       }
       if (notificationsEnabled && data.userId !== currentUser.id && activeContactId === data.userId) {
-        const audio = new Audio("https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3");
-        audio.play().catch(e => console.log("Audio not allowed"));
+        new Audio("https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3").play().catch(e => console.log);
       }
       break;
-
     case "message_edited":
-      const editedMsgDiv = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`);
-      if (editedMsgDiv) editedMsgDiv.innerHTML = escapeHtml(data.newContent);
-      const msgIdx = messageHistory.findIndex(m => m.id === data.messageId);
-      if (msgIdx !== -1) messageHistory[msgIdx].content = data.newContent;
+      const ed = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`);
+      if (ed) ed.innerHTML = escapeHtml(data.newContent);
+      const idx = messageHistory.findIndex(m => m.id === data.messageId);
+      if (idx !== -1) messageHistory[idx].content = data.newContent;
       break;
-
     case "message_deleted":
-      const deletedMsgDiv = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`);
-      if (deletedMsgDiv) deletedMsgDiv.innerHTML = "<em>Mensagem excluída</em>";
-      const delIdx = messageHistory.findIndex(m => m.id === data.messageId);
-      if (delIdx !== -1) messageHistory[delIdx].deleted = true;
+      const del = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`);
+      if (del) del.innerHTML = "<em>Mensagem excluída</em>";
+      const dIdx = messageHistory.findIndex(m => m.id === data.messageId);
+      if (dIdx !== -1) messageHistory[dIdx].deleted = true;
       break;
-
     case "reaction_update":
-      const reactionMsgDiv = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__reactions`);
-      if (reactionMsgDiv) {
+      const reactDiv = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__reactions`);
+      if (reactDiv) {
         const msg = messageHistory.find(m => m.id === data.messageId);
         if (msg) {
           msg.reactions = data.reactions;
-          const bubble = reactionMsgDiv.parentNode;
-          const newReactionsDiv = document.createElement("div");
-          newReactionsDiv.classList.add("message__reactions");
+          const bubble = reactDiv.parentNode;
+          const newDiv = document.createElement("div");
+          newDiv.classList.add("message__reactions");
           for (const [emoji, users] of Object.entries(data.reactions)) {
-            const reactionSpan = document.createElement("span");
-            reactionSpan.classList.add("message__reaction");
-            reactionSpan.textContent = `${emoji} ${users.length}`;
-            reactionSpan.addEventListener("click", (e) => {
+            const span = document.createElement("span");
+            span.classList.add("message__reaction");
+            span.textContent = `${emoji} ${users.length}`;
+            span.addEventListener("click", (e) => {
               e.stopPropagation();
-              const alreadyReacted = users.includes(currentUser.id);
-              sendReaction(data.messageId, emoji, !alreadyReacted);
+              const already = users.includes(currentUser.id);
+              sendReaction(data.messageId, emoji, !already);
             });
-            newReactionsDiv.appendChild(reactionSpan);
+            newDiv.appendChild(span);
           }
-          bubble.replaceChild(newReactionsDiv, reactionMsgDiv);
+          bubble.replaceChild(newDiv, reactDiv);
         }
       }
       break;
-
     case "read_update":
-      const msgDivs = document.querySelectorAll('.message');
-      for (let div of msgDivs) {
+      document.querySelectorAll(".message").forEach(div => {
         const id = div.dataset.messageId;
         const msg = messageHistory.find(m => m.id === id);
         if (msg && msg.userId === currentUser.id && !msg.deleted) {
-          const statusSpan = div.querySelector('.message__read-status');
-          if (statusSpan) {
-            if (msg.readBy && msg.readBy.length > 1) {
-              statusSpan.innerHTML = '<span class="material-symbols-outlined">done_all</span>';
-            } else {
-              statusSpan.innerHTML = '<span class="material-symbols-outlined">done</span>';
-            }
-          }
+          const st = div.querySelector(".message__read-status");
+          if (st) st.innerHTML = msg.readBy && msg.readBy.length > 1 ? '<span class="material-symbols-outlined">done_all</span>' : '<span class="material-symbols-outlined">done</span>';
         }
-      }
+      });
       break;
-
     case "search_results":
       displaySearchResults(data.users);
       break;
-
     case "typing":
       if (data.userId !== currentUser.id && activeContactId === data.userId) {
         if (data.isTyping) {
           chatHeaderStatus.textContent = `${data.userName} está digitando...`;
-          setTimeout(() => {
-            if (chatHeaderStatus.textContent.includes("digitando")) {
-              chatHeaderStatus.textContent = "online";
-            }
-          }, 2000);
-        } else {
-          chatHeaderStatus.textContent = "online";
-        }
+          setTimeout(() => { if (chatHeaderStatus.textContent.includes("digitando")) chatHeaderStatus.textContent = "online"; }, 2000);
+        } else chatHeaderStatus.textContent = "online";
       }
-      break;
-
-    default:
       break;
   }
 };
 
+// ========== ENVIO DE MENSAGEM ==========
 const sendMessage = (content) => {
   if (!content.trim()) return;
-  if (!activeContactId) {
-    alert("Selecione um amigo para conversar.");
-    return;
-  }
-  const message = {
+  if (!activeContactId) { alert("Selecione um amigo para conversar."); return; }
+  const msg = {
     type: "message",
     recipientId: activeContactId,
     content: content.trim(),
     timestamp: Date.now(),
     replyTo: replyToMessage ? replyToMessage.id : null,
   };
-  websocket.send(JSON.stringify(message));
+  websocket.send(JSON.stringify(msg));
   replyToMessage = null;
-  const replyIndicator = document.getElementById("replyIndicator");
-  if (replyIndicator) replyIndicator.remove();
+  const ind = document.getElementById("replyIndicator");
+  if (ind) ind.remove();
 };
 
 const sendTyping = (isTyping) => {
   if (!websocket || !activeContactId) return;
-  websocket.send(JSON.stringify({
-    type: "typing",
-    recipientId: activeContactId,
-    isTyping,
-  }));
+  websocket.send(JSON.stringify({ type: "typing", recipientId: activeContactId, isTyping }));
 };
 
-// ========== WebSocket ==========
-const initWebSocket = (name, password, avatar) => {
-  const wsUrl = getWebSocketUrl();
-  console.log("Conectando ao WebSocket:", wsUrl);
-  websocket = new WebSocket(wsUrl);
+// ========== WEBSOCKET ==========
+const initWebSocket = (name, pwd, avatar) => {
+  const url = getWebSocketUrl();
+  websocket = new WebSocket(url);
   websocket.onopen = () => {
-    console.log("WebSocket conectado com sucesso!");
-    websocket.send(JSON.stringify({
-      type: "login",
-      name,
-      password,
-      avatar,
-    }));
+    websocket.send(JSON.stringify({ type: "login", name, password: pwd, avatar }));
   };
-  websocket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === "login_failed") {
-      alert(`Erro: ${data.reason}`);
-      clearSession();
-      return;
-    }
+  websocket.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === "login_failed") { alert(data.reason); clearSession(); return; }
     processMessage(data);
   };
-  websocket.onclose = (event) => {
-    console.log("WebSocket fechado. Código:", event.code, "Motivo:", event.reason);
-    if (currentUser) {
-      alert("Conexão perdida. Tentando reconectar em 3 segundos...");
-      setTimeout(() => initWebSocket(name, password, avatar), 3000);
-    }
+  websocket.onclose = () => {
+    if (currentUser) setTimeout(() => initWebSocket(name, pwd, avatar), 3000);
   };
-  websocket.onerror = (error) => {
-    console.error("Erro no WebSocket:", error);
-  };
+  websocket.onerror = (err) => console.error("WebSocket error", err);
 };
 
-const handleLogin = (event) => {
-  event.preventDefault();
+const handleLogin = (e) => {
+  e.preventDefault();
   const name = loginNameInput.value.trim();
-  const password = loginPasswordInput.value.trim();
-  if (!name || !password) return;
-  initWebSocket(name, password, selectedAvatar);
+  const pwd = loginPasswordInput.value.trim();
+  if (!name || !pwd) return;
+  initWebSocket(name, pwd, selectedAvatar);
 };
 
+// ========== UI ==========
 const renderAvatarOptions = () => {
   avatarOptionsDiv.innerHTML = "";
   AVATAR_LIST.forEach(emoji => {
-    const option = document.createElement("div");
-    option.classList.add("avatar-option");
-    option.textContent = emoji;
-    if (emoji === selectedAvatar) option.classList.add("selected");
-    option.addEventListener("click", () => {
-      document.querySelectorAll(".avatar-option").forEach(opt => opt.classList.remove("selected"));
-      option.classList.add("selected");
+    const opt = document.createElement("div");
+    opt.classList.add("avatar-option");
+    opt.textContent = emoji;
+    if (emoji === selectedAvatar) opt.classList.add("selected");
+    opt.addEventListener("click", () => {
+      document.querySelectorAll(".avatar-option").forEach(o => o.classList.remove("selected"));
+      opt.classList.add("selected");
       selectedAvatar = emoji;
     });
-    avatarOptionsDiv.appendChild(option);
+    avatarOptionsDiv.appendChild(opt);
   });
 };
 
 const showEmojiPicker = () => {
   emojiPicker.style.display = emojiPicker.style.display === "none" ? "grid" : "none";
-  if (emojiPicker.children.length === 0) {
-    const commonEmojis = ["😀", "😂", "🥰", "😎", "😢", "👍", "🔥", "❤️", "🎉", "💯", "😡", "🥺"];
-    commonEmojis.forEach(emoji => {
+  if (!emojiPicker.children.length) {
+    const common = ["😀", "😂", "🥰", "😎", "😢", "👍", "🔥", "❤️", "🎉", "💯", "😡", "🥺"];
+    common.forEach(e => {
       const span = document.createElement("span");
-      span.textContent = emoji;
+      span.textContent = e;
       span.addEventListener("click", () => {
-        chatInput.value += emoji;
+        chatInput.value += e;
         emojiPicker.style.display = "none";
         chatInput.focus();
       });
@@ -793,92 +621,49 @@ const showEmojiPicker = () => {
   }
 };
 
+// ========== MODAIS E MENUS ==========
 const openSettingsModal = () => settingsModal.style.display = "flex";
 const closeSettingsModal = () => settingsModal.style.display = "none";
-const saveTheme = () => {
-  currentTheme = document.getElementById("themeSelect").value;
-  applyTheme();
-  saveSettings();
-};
-const saveNotifications = () => {
-  notificationsEnabled = document.getElementById("notificationsToggle").checked;
-  saveSettings();
-};
-const saveShowTime = () => {
-  showTime = document.getElementById("showTimeToggle").checked;
-  saveSettings();
-  if (activeContactId) loadConversationMessages(activeContactId);
-};
+const saveTheme = () => { currentTheme = document.getElementById("themeSelect").value; applyTheme(); saveSettings(); };
+const saveNotifications = () => { notificationsEnabled = document.getElementById("notificationsToggle").checked; saveSettings(); };
+const saveShowTime = () => { showTime = document.getElementById("showTimeToggle").checked; saveSettings(); if (activeContactId) loadConversationMessages(activeContactId); };
 const clearAllHistory = () => {
-  if (confirm("Limpar todo o histórico de mensagens? Isso não pode ser desfeito.")) {
-    if (websocket) {
-      websocket.send(JSON.stringify({ type: "clear_history" }));
-      chatMessages.innerHTML = "";
-      messageHistory = [];
-    }
+  if (confirm("Limpar todo o histórico?")) {
+    if (websocket) websocket.send(JSON.stringify({ type: "clear_history" }));
+    chatMessages.innerHTML = "";
+    messageHistory = [];
   }
 };
 
-// Menu de contexto da conversa
-const showContextMenu = (x, y) => {
-  chatContextMenu.style.display = "block";
-  chatContextMenu.style.left = `${x}px`;
-  chatContextMenu.style.top = `${y}px`;
-};
-const hideContextMenu = () => {
-  chatContextMenu.style.display = "none";
-};
+const showContextMenu = (x, y) => { chatContextMenu.style.display = "block"; chatContextMenu.style.left = `${x}px`; chatContextMenu.style.top = `${y}px`; };
+const hideContextMenu = () => { chatContextMenu.style.display = "none"; };
 const clearConversation = () => {
-  if (activeContactId && confirm("Limpar conversa com este amigo?")) {
-    if (websocket) {
-      websocket.send(JSON.stringify({ type: "clear_conversation", withUser: activeContactId }));
-      chatMessages.innerHTML = "";
-      messageHistory = messageHistory.filter(m => 
-        !(m.userId === currentUser.id && m.recipientId === activeContactId) &&
-        !(m.userId === activeContactId && m.recipientId === currentUser.id)
-      );
-    }
+  if (activeContactId && confirm("Limpar conversa?")) {
+    if (websocket) websocket.send(JSON.stringify({ type: "clear_conversation", withUser: activeContactId }));
+    chatMessages.innerHTML = "";
+    messageHistory = messageHistory.filter(m => !(m.userId === currentUser.id && m.recipientId === activeContactId) && !(m.userId === activeContactId && m.recipientId === currentUser.id));
   }
 };
-const blockUser = () => {
-  if (activeContactId) {
-    alert(`Usuário ${allFriends.get(activeContactId)?.name} bloqueado.`);
-  }
-};
-const reportUser = () => {
-  if (activeContactId) {
-    alert(`Usuário ${allFriends.get(activeContactId)?.name} reportado.`);
-  }
-};
+const blockUser = () => { if (activeContactId) alert(`Usuário ${allFriends.get(activeContactId)?.name} bloqueado.`); };
+const reportUser = () => { if (activeContactId) alert(`Usuário ${allFriends.get(activeContactId)?.name} reportado.`); };
 
-// Menu de contexto da mensagem
-const showMessageContextMenu = (e, message) => {
+const showMessageContextMenu = (e, msg) => {
   e.preventDefault();
   if (currentMessage) hideMessageContextMenu();
-  currentMessage = message;
+  currentMessage = msg;
   messageContextMenu.style.display = "block";
   messageContextMenu.style.left = `${e.pageX}px`;
   messageContextMenu.style.top = `${e.pageY}px`;
-  const isOwner = message.userId === currentUser.id;
+  const isOwner = msg.userId === currentUser.id;
   document.getElementById("editMsgBtn").style.display = isOwner ? "block" : "none";
   document.getElementById("deleteMsgBtn").style.display = isOwner ? "block" : "none";
 };
-const hideMessageContextMenu = () => {
-  messageContextMenu.style.display = "none";
-  currentMessage = null;
-};
-const handleReply = () => {
-  if (currentMessage && !currentMessage.deleted) {
-    setReplyTo(currentMessage);
-    hideMessageContextMenu();
-  }
-};
+const hideMessageContextMenu = () => { messageContextMenu.style.display = "none"; currentMessage = null; };
+const handleReply = () => { if (currentMessage && !currentMessage.deleted) { setReplyTo(currentMessage); hideMessageContextMenu(); } };
 const handleEdit = () => {
   if (currentMessage && currentMessage.userId === currentUser.id && !currentMessage.deleted) {
-    const newContent = prompt("Editar mensagem:", currentMessage.content);
-    if (newContent && newContent.trim()) {
-      editMessage(currentMessage.id, newContent.trim());
-    }
+    const newC = prompt("Editar mensagem:", currentMessage.content);
+    if (newC && newC.trim()) editMessage(currentMessage.id, newC.trim());
     hideMessageContextMenu();
   }
 };
@@ -899,13 +684,13 @@ const handleReact = () => {
 };
 const pickReaction = (emoji) => {
   if (currentMessage) {
-    const existingReaction = currentMessage.reactions?.[emoji]?.includes(currentUser.id);
-    sendReaction(currentMessage.id, emoji, !existingReaction);
+    const already = currentMessage.reactions?.[emoji]?.includes(currentUser.id);
+    sendReaction(currentMessage.id, emoji, !already);
     reactionPicker.style.display = "none";
   }
 };
 
-// Auto-login
+// ========== AUTO-LOGIN ==========
 const attemptAutoLogin = () => {
   const session = getStoredSession();
   if (session && session.user && session.password) {
@@ -915,22 +700,10 @@ const attemptAutoLogin = () => {
   }
 };
 
-// ========== Event Listeners ==========
+// ========== EVENT LISTENERS ==========
 loginForm.addEventListener("submit", handleLogin);
-chatForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (activeContactId) {
-    sendMessage(chatInput.value);
-    chatInput.value = "";
-  } else {
-    alert("Selecione um amigo para conversar.");
-  }
-});
-chatInput.addEventListener("input", () => {
-  if (typingTimeout) clearTimeout(typingTimeout);
-  sendTyping(true);
-  typingTimeout = setTimeout(() => sendTyping(false), 1000);
-});
+chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendMessage(chatInput.value); chatInput.value = ""; });
+chatInput.addEventListener("input", () => { if (typingTimeout) clearTimeout(typingTimeout); sendTyping(true); typingTimeout = setTimeout(() => sendTyping(false), 1000); });
 emojiButton.addEventListener("click", showEmojiPicker);
 document.addEventListener("click", (e) => {
   if (!emojiButton.contains(e.target) && !emojiPicker.contains(e.target)) emojiPicker.style.display = "none";
@@ -938,80 +711,33 @@ document.addEventListener("click", (e) => {
   if (!messageContextMenu.contains(e.target)) hideMessageContextMenu();
   if (!reactionPicker.contains(e.target)) reactionPicker.style.display = "none";
 });
-
 settingsButton.addEventListener("click", openSettingsModal);
 closeModalBtn.addEventListener("click", closeSettingsModal);
-window.addEventListener("click", (e) => {
-  if (e.target === settingsModal) closeSettingsModal();
-});
+window.addEventListener("click", (e) => { if (e.target === settingsModal) closeSettingsModal(); });
 document.getElementById("themeSelect").addEventListener("change", saveTheme);
 document.getElementById("notificationsToggle").addEventListener("change", saveNotifications);
 document.getElementById("showTimeToggle").addEventListener("change", saveShowTime);
 document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
-logoutBtn.addEventListener("click", () => {
-  if (confirm("Deseja realmente sair da sua conta?")) logout();
-});
-
-chatMenuButton.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const rect = chatMenuButton.getBoundingClientRect();
-  showContextMenu(rect.right - 180, rect.bottom + 5);
-});
-document.getElementById("clearConversationBtn").addEventListener("click", () => {
-  clearConversation();
-  hideContextMenu();
-});
-document.getElementById("blockUserBtn").addEventListener("click", () => {
-  blockUser();
-  hideContextMenu();
-});
-document.getElementById("reportUserBtn").addEventListener("click", () => {
-  reportUser();
-  hideContextMenu();
-});
-
+logoutBtn.addEventListener("click", () => { if (confirm("Sair da conta?")) logout(); });
+chatMenuButton.addEventListener("click", (e) => { e.stopPropagation(); const rect = chatMenuButton.getBoundingClientRect(); showContextMenu(rect.right - 180, rect.bottom + 5); });
+document.getElementById("clearConversationBtn").addEventListener("click", () => { clearConversation(); hideContextMenu(); });
+document.getElementById("blockUserBtn").addEventListener("click", () => { blockUser(); hideContextMenu(); });
+document.getElementById("reportUserBtn").addEventListener("click", () => { reportUser(); hideContextMenu(); });
 attachButton.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", (e) => {
-  if (e.target.files.length) handleFileUpload(e.target.files[0]);
-  fileInput.value = "";
-});
-
+fileInput.addEventListener("change", (e) => { if (e.target.files.length) handleFileUpload(e.target.files[0]); fileInput.value = ""; });
 document.getElementById("replyMsgBtn").addEventListener("click", handleReply);
 document.getElementById("editMsgBtn").addEventListener("click", handleEdit);
 document.getElementById("deleteMsgBtn").addEventListener("click", handleDelete);
 document.getElementById("reactMsgBtn").addEventListener("click", handleReact);
-
-reactionPicker.querySelectorAll("span").forEach(span => {
-  span.addEventListener("click", () => pickReaction(span.textContent));
-});
-
+reactionPicker.querySelectorAll("span").forEach(span => span.addEventListener("click", () => pickReaction(span.textContent)));
 searchContactsInput.addEventListener("input", (e) => renderFriends(e.target.value));
-
 globalSearchButton.addEventListener("click", performGlobalSearch);
-globalSearchInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") performGlobalSearch();
-});
-globalSearchInput.addEventListener("focus", () => {
-  performGlobalSearch();
-});
+globalSearchInput.addEventListener("keypress", (e) => { if (e.key === "Enter") performGlobalSearch(); });
+globalSearchInput.addEventListener("focus", () => performGlobalSearch());
+if (backButton) backButton.addEventListener("click", showConversationsView);
+window.addEventListener("resize", () => { if (!isMobile()) document.body.classList.remove("chat-active"); });
 
-// Botão voltar no mobile (apenas se existir)
-if (backButton) {
-  backButton.addEventListener("click", () => {
-    showConversationsView();
-  });
-} else {
-  console.warn("Elemento backButton não encontrado. Verifique se o HTML inclui <button id='backButton'>");
-}
-
-// ========== Inicialização ==========
+// ========== INICIALIZAÇÃO ==========
 renderAvatarOptions();
 loadSettings();
 attemptAutoLogin();
-
-// Ajuste de responsividade ao redimensionar
-window.addEventListener("resize", () => {
-  if (!isMobile()) {
-    document.body.classList.remove("chat-active");
-  }
-});

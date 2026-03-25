@@ -63,7 +63,6 @@ body {
     overflow: hidden;
   }
 
-  /* Inicialmente, exibe a lista de conversas, oculta o chat */
   .sidebar {
     position: absolute;
     top: 0;
@@ -86,7 +85,6 @@ body {
     transition: transform 0.3s ease;
   }
 
-  /* Quando a classe .chat-active estiver no body, mostra o chat */
   body.chat-active .sidebar {
     transform: translateX(-100%);
   }
@@ -96,7 +94,6 @@ body {
     z-index: 3;
   }
 
-  /* Botão de voltar (visível apenas no mobile) */
   .back-button {
     display: flex;
     align-items: center;
@@ -115,12 +112,11 @@ body {
   }
 }
 
-/* Desktop: botão de voltar invisível */
 .back-button {
   display: none;
 }
 
-/* Estilos gerais da sidebar (não alterados) */
+/* --- Estilos gerais (mantidos) --- */
 .sidebar__header {
   padding: 16px;
   display: flex;
@@ -129,7 +125,6 @@ body {
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-color);
 }
-
 .user-profile {
   display: flex;
   align-items: center;
@@ -141,7 +136,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .avatar {
   width: var(--avatar-size);
   height: var(--avatar-size);
@@ -158,14 +152,12 @@ body {
   text-transform: uppercase;
   flex-shrink: 0;
 }
-
 .sidebar__actions {
   display: flex;
   gap: 20px;
   color: var(--text-secondary);
   cursor: pointer;
 }
-
 .search-wrapper {
   position: relative;
   width: 100%;
@@ -193,18 +185,15 @@ body {
   cursor: pointer;
   pointer-events: auto;
 }
-
 .sidebar__search {
   padding: 12px 16px;
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-color);
 }
-
 .sidebar__contacts {
   flex: 1;
   overflow-y: auto;
 }
-
 .contact-item {
   display: flex;
   align-items: center;
@@ -239,7 +228,6 @@ body {
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
-
 .sidebar__global-search {
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
@@ -295,7 +283,6 @@ body {
   border-radius: 4px;
   flex-shrink: 0;
 }
-
 .sidebar__pending {
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
@@ -359,8 +346,7 @@ body {
 .pending-buttons .reject {
   color: #f44336;
 }
-
-/* Chat Area */
+/* Área de login */
 .login {
   flex: 1;
   display: flex;
@@ -434,7 +420,7 @@ body {
 .login__button:hover {
   background-color: #0e5aaf;
 }
-
+/* Chat */
 .chat {
   flex: 1;
   display: flex;
@@ -442,7 +428,6 @@ body {
   height: 100%;
   min-width: 0;
 }
-
 .chat__header {
   background-color: var(--bg-sidebar);
   padding: 12px 16px;
@@ -497,7 +482,6 @@ body {
   background-image: url("../images/background.png");
   background-size: cover;
 }
-
 .message {
   display: flex;
   align-items: flex-end;
@@ -596,7 +580,6 @@ body {
   border-radius: 8px;
   cursor: pointer;
 }
-
 .chat__input-area {
   background-color: var(--bg-sidebar);
   padding: 12px 16px;
@@ -643,7 +626,6 @@ body {
 .chat__button span {
   font-size: 1.8rem;
 }
-
 .emoji-picker {
   position: absolute;
   bottom: 70px;
@@ -666,7 +648,6 @@ body {
 .emoji-picker span:hover {
   transform: scale(1.2);
 }
-
 .reply-indicator {
   position: absolute;
   bottom: 100%;
@@ -687,8 +668,7 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
 }
-
-/* Modal */
+/* Modal e menus */
 .modal {
   display: none;
   position: fixed;
@@ -761,8 +741,6 @@ body {
 .danger-btn:hover {
   background-color: #b71c1c;
 }
-
-/* Context Menu */
 .context-menu {
   position: absolute;
   background-color: var(--bg-sidebar);
@@ -785,7 +763,6 @@ body {
 .context-menu li:hover {
   background-color: var(--input-bg);
 }
-
 .reaction-picker {
   position: absolute;
   background: var(--bg-sidebar);
@@ -804,7 +781,6 @@ body {
 .reaction-picker span:hover {
   transform: scale(1.2);
 }
-
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -815,8 +791,6 @@ body {
   background: var(--text-secondary);
   border-radius: 3px;
 }
-
-/* Tema claro */
 body.light-theme {
   --bg-dark: #f0f2f5;
   --bg-sidebar: #ffffff;

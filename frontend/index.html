@@ -10,7 +10,7 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar / Lista de conversas (agora controlada por classe .conversations-view) -->
+    <!-- Sidebar / Lista de conversas -->
     <aside class="sidebar conversations-view" id="conversationsView">
       <div class="sidebar__header">
         <div class="user-profile">
@@ -22,7 +22,6 @@
         </div>
       </div>
 
-      <!-- Barra de busca de amigos -->
       <div class="sidebar__search">
         <div class="search-wrapper">
           <input type="text" id="searchContacts" placeholder="Pesquisar amigos">
@@ -32,7 +31,6 @@
 
       <div class="sidebar__contacts" id="contactsList"></div>
 
-      <!-- Busca global de novos amigos -->
       <div class="sidebar__global-search">
         <h4>Encontrar novos amigos</h4>
         <div class="search-wrapper">
@@ -48,11 +46,10 @@
       </div>
     </aside>
 
-    <!-- Área principal do chat (agora com classe .chat-view) -->
+    <!-- Área do chat -->
     <main class="chat-area chat-view" id="chatView">
       <header class="chat__header">
         <div class="chat__header-info">
-          <!-- Botão de voltar (mobile) -->
           <button class="back-button" id="backButton" aria-label="Voltar para conversas">
             <span class="material-symbols-outlined">arrow_back</span>
           </button>
@@ -117,7 +114,7 @@
     </div>
   </div>
 
-  <!-- Menu de Contexto da Conversa -->
+  <!-- Menus de contexto -->
   <div id="chatContextMenu" class="context-menu" style="display: none;">
     <ul>
       <li id="clearConversationBtn">Limpar conversa</li>
@@ -126,7 +123,6 @@
     </ul>
   </div>
 
-  <!-- Menu de Contexto da Mensagem -->
   <div id="messageContextMenu" class="context-menu" style="display: none;">
     <ul>
       <li id="replyMsgBtn">Responder</li>
@@ -136,7 +132,6 @@
     </ul>
   </div>
 
-  <!-- Picker de Reações -->
   <div id="reactionPicker" class="reaction-picker" style="display: none;">
     <span>👍</span><span>❤️</span><span>😂</span><span>😮</span><span>😢</span><span>👎</span>
   </div>
