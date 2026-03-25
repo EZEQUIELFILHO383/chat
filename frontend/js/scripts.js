@@ -1,6 +1,5 @@
 // ========== CONFIGURAÇÃO ==========
-// 🔴 ALTERE ESTA URL PARA A DO SEU BACKEND NO RENDER (ex: "wss://chat-backend-pt9f.onrender.com")
-const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com";
+const PROD_WS_URL = "wss://SEU-APP-BACKEND.onrender.com"; // ⚠️ SUBSTITUA AQUI
 
 // ========== ELEMENTOS DOM ==========
 const loginScreen = document.getElementById("loginScreen");
@@ -37,51 +36,42 @@ const globalSearchButton = document.getElementById("globalSearchButton");
 const globalSearchResults = document.getElementById("globalSearchResults");
 const backButton = document.getElementById("backButton");
 
-// ========== FUNÇÕES AUXILIARES ==========
-const getWebSocketUrl = () => {
-  const hostname = window.location.hostname;
-  if (hostname === "localhost" || hostname === "127.0.0.1") return "ws://localhost:8080";
-  return PROD_WS_URL;
+// ========== AUXILIARES ==========
+const getWsUrl = () => {
+  const host = window.location.hostname;
+  return (host === "localhost" || host === "127.0.0.1") ? "ws://localhost:8080" : PROD_WS_URL;
 };
 const isMobile = () => window.innerWidth <= 768;
-const showConversationsView = () => { if (isMobile()) document.body.classList.remove("chat-active"); };
-const showChatView = () => { if (isMobile()) document.body.classList.add("chat-active"); };
+const showConversations = () => { if (isMobile()) document.body.classList.remove("chat-active"); };
+const showChat = () => { if (isMobile()) document.body.classList.add("chat-active"); };
+const formatTime = ts => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const escapeHtml = text => { const d = document.createElement("div"); d.textContent = text; return d.innerHTML; };
 
-// ========== VARIÁVEIS GLOBAIS ==========
-const AVATAR_LIST = ["😀", "😎", "🥳", "😍", "🐱", "🐶", "🦊", "🐼", "🍕", "⚽"];
+// ========== ESTADO ==========
+const AVATAR_LIST = ["😀","😎","🥳","😍","🐱","🐶","🦊","🐼","🍕","⚽"];
 let selectedAvatar = AVATAR_LIST[0];
 let currentUser = null;
-let websocket = null;
+let ws = null;
 let activeContactId = null;
-let allFriends = new Map();
+let allFriends = new Map(); // id -> { name, avatar, isOnline }
 let pendingRequests = [];
 let messageHistory = [];
 let currentTheme = "dark";
-let notificationsEnabled = true;
+let notifications = true;
 let showTime = true;
-let currentMessage = null;
-let replyToMessage = null;
-let lastReadId = null;
-let typingTimeout;
-
-// ========== FUNÇÕES BÁSICAS ==========
-const formatTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-const scrollToBottom = () => { chatMessages.scrollTop = chatMessages.scrollHeight; };
-const escapeHtml = (text) => { const div = document.createElement("div"); div.textContent = text; return div.innerHTML; };
+let currentMsg = null, replyToMsg = null, lastReadId = null, typingTimeout;
 
 // ========== CONFIGURAÇÕES ==========
-const saveSettings = () => localStorage.setItem("chatSettings", JSON.stringify({ theme: currentTheme, notifications: notificationsEnabled, showTime }));
+const saveSettings = () => localStorage.setItem("chatSettings", JSON.stringify({ theme: currentTheme, notifications, showTime }));
 const loadSettings = () => {
-  const saved = localStorage.getItem("chatSettings");
-  if (saved) {
-    const s = JSON.parse(saved);
-    currentTheme = s.theme;
-    notificationsEnabled = s.notifications;
-    showTime = s.showTime;
+  const s = localStorage.getItem("chatSettings");
+  if (s) {
+    const { theme, notifications: n, showTime: t } = JSON.parse(s);
+    currentTheme = theme; notifications = n; showTime = t;
     applyTheme();
-    document.getElementById("themeSelect").value = currentTheme;
-    document.getElementById("notificationsToggle").checked = notificationsEnabled;
-    document.getElementById("showTimeToggle").checked = showTime;
+    document.getElementById("themeSelect").value = theme;
+    document.getElementById("notificationsToggle").checked = n;
+    document.getElementById("showTimeToggle").checked = t;
   }
 };
 const applyTheme = () => {
@@ -98,9 +88,8 @@ const getStoredSession = () => {
   return null;
 };
 
-// ========== LOGOUT ==========
 const logout = () => {
-  if (websocket) websocket.close();
+  if (ws) ws.close();
   clearSession();
   currentUser = null;
   activeContactId = null;
@@ -116,7 +105,7 @@ const logout = () => {
   loginNameInput.value = "";
   loginPasswordInput.value = "";
   settingsModal.style.display = "none";
-  showConversationsView();
+  showConversations();
 };
 
 // ========== MENSAGENS ==========
@@ -134,8 +123,8 @@ const createMessageElement = (msg, isSelf) => {
     avatarDiv.textContent = "";
   }
 
-  const bubbleDiv = document.createElement("div");
-  bubbleDiv.classList.add("message__bubble");
+  const bubble = document.createElement("div");
+  bubble.classList.add("message__bubble");
 
   if (msg.replyTo) {
     const reply = messageHistory.find(m => m.id === msg.replyTo);
@@ -143,15 +132,15 @@ const createMessageElement = (msg, isSelf) => {
       const preview = document.createElement("div");
       preview.classList.add("message__reply-preview");
       preview.innerHTML = `<strong>${escapeHtml(reply.userName)}</strong>: ${escapeHtml(reply.content.substring(0, 50))}${reply.content.length > 50 ? "..." : ""}`;
-      bubbleDiv.appendChild(preview);
+      bubble.appendChild(preview);
     }
   }
 
   if (!isSelf) {
-    const senderSpan = document.createElement("span");
-    senderSpan.classList.add("message__sender");
-    senderSpan.textContent = msg.userName;
-    bubbleDiv.appendChild(senderSpan);
+    const sender = document.createElement("span");
+    sender.classList.add("message__sender");
+    sender.textContent = msg.userName;
+    bubble.appendChild(sender);
   }
 
   if (msg.type === "file_message") {
@@ -160,19 +149,19 @@ const createMessageElement = (msg, isSelf) => {
       img.src = msg.fileData;
       img.classList.add("message__file-image");
       img.addEventListener("click", () => window.open(msg.fileData, "_blank"));
-      bubbleDiv.appendChild(img);
+      bubble.appendChild(img);
     } else {
       const link = document.createElement("a");
       link.href = msg.fileData;
       link.download = msg.fileName;
       link.textContent = `📎 ${msg.fileName}`;
-      bubbleDiv.appendChild(link);
+      bubble.appendChild(link);
     }
   } else {
-    const textSpan = document.createElement("span");
-    textSpan.classList.add("message__text");
-    textSpan.innerHTML = msg.deleted ? "<em>Mensagem excluída</em>" : escapeHtml(msg.content);
-    bubbleDiv.appendChild(textSpan);
+    const text = document.createElement("span");
+    text.classList.add("message__text");
+    text.innerHTML = msg.deleted ? "<em>Mensagem excluída</em>" : escapeHtml(msg.content);
+    bubble.appendChild(text);
   }
 
   const footer = document.createElement("div");
@@ -181,61 +170,62 @@ const createMessageElement = (msg, isSelf) => {
   footer.style.justifyContent = "flex-end";
   footer.style.gap = "4px";
   if (showTime) {
-    const timeSpan = document.createElement("span");
-    timeSpan.classList.add("message__time");
-    timeSpan.textContent = formatTime(msg.timestamp);
-    footer.appendChild(timeSpan);
+    const time = document.createElement("span");
+    time.classList.add("message__time");
+    time.textContent = formatTime(msg.timestamp);
+    footer.appendChild(time);
   }
   if (msg.edited) {
-    const editedSpan = document.createElement("span");
-    editedSpan.classList.add("message__edited");
-    editedSpan.textContent = "editado";
-    footer.appendChild(editedSpan);
+    const ed = document.createElement("span");
+    ed.classList.add("message__edited");
+    ed.textContent = "editado";
+    footer.appendChild(ed);
   }
   if (isSelf && !msg.deleted) {
-    const statusSpan = document.createElement("span");
-    statusSpan.classList.add("message__read-status");
-    statusSpan.innerHTML = msg.readBy && msg.readBy.length > 1 ? '<span class="material-symbols-outlined">done_all</span>' : '<span class="material-symbols-outlined">done</span>';
-    footer.appendChild(statusSpan);
+    const status = document.createElement("span");
+    status.classList.add("message__read-status");
+    status.innerHTML = msg.readBy && msg.readBy.length > 1 ? '<span class="material-symbols-outlined">done_all</span>' : '<span class="material-symbols-outlined">done</span>';
+    footer.appendChild(status);
   }
-  bubbleDiv.appendChild(footer);
+  bubble.appendChild(footer);
 
   if (msg.reactions && Object.keys(msg.reactions).length) {
     const reactionsDiv = document.createElement("div");
     reactionsDiv.classList.add("message__reactions");
     for (const [emoji, users] of Object.entries(msg.reactions)) {
-      const reactionSpan = document.createElement("span");
-      reactionSpan.classList.add("message__reaction");
-      reactionSpan.textContent = `${emoji} ${users.length}`;
-      reactionSpan.addEventListener("click", (e) => {
+      const r = document.createElement("span");
+      r.classList.add("message__reaction");
+      r.textContent = `${emoji} ${users.length}`;
+      r.addEventListener("click", (e) => {
         e.stopPropagation();
         const already = users.includes(currentUser.id);
         sendReaction(msg.id, emoji, !already);
       });
-      reactionsDiv.appendChild(reactionSpan);
+      reactionsDiv.appendChild(r);
     }
-    bubbleDiv.appendChild(reactionsDiv);
+    bubble.appendChild(reactionsDiv);
   }
 
   div.appendChild(avatarDiv);
-  div.appendChild(bubbleDiv);
-  div.addEventListener("contextmenu", (e) => { e.preventDefault(); showMessageContextMenu(e, msg); });
+  div.appendChild(bubble);
+  div.addEventListener("contextmenu", (e) => { e.preventDefault(); showMessageMenu(e, msg); });
   return div;
 };
 
-const addMessageToChat = (msg) => {
+const addMessageToChat = msg => {
   const isSelf = msg.userId === currentUser.id;
-  const el = createMessageElement(msg, isSelf);
-  chatMessages.appendChild(el);
+  chatMessages.appendChild(createMessageElement(msg, isSelf));
   scrollToBottom();
 };
+
+const scrollToBottom = () => { chatMessages.scrollTop = chatMessages.scrollHeight; };
 
 // ========== AMIGOS ==========
 const renderFriends = (filter = "") => {
   contactsList.innerHTML = "";
   const list = Array.from(allFriends.values()).filter(f => f.name.toLowerCase().includes(filter.toLowerCase()));
   if (!list.length) {
-    contactsList.innerHTML = "<div style='padding:16px;text-align:center;color:var(--text-secondary);'>Nenhum amigo encontrado</div>";
+    contactsList.innerHTML = "<div style='padding:16px;text-align:center;color:var(--text-secondary);'>Nenhum amigo</div>";
     return;
   }
   list.forEach(f => {
@@ -256,23 +246,21 @@ const renderFriends = (filter = "") => {
 
     div.appendChild(avatarDiv);
     div.appendChild(infoDiv);
-    div.addEventListener("click", (e) => {
-      const fid = e.currentTarget.dataset.friendId;
-      if (!fid) return;
-      activeContactId = fid;
+    div.addEventListener("click", () => {
+      activeContactId = f.id;
       renderFriends(searchContactsInput.value);
-      chatHeaderName.textContent = e.currentTarget.dataset.friendName;
-      chatHeaderAvatar.textContent = e.currentTarget.dataset.friendAvatar;
-      loadConversationMessages(fid);
-      showChatView();
+      chatHeaderName.textContent = f.name;
+      chatHeaderAvatar.textContent = f.avatar;
+      loadConversationMessages(f.id);
+      showChat();
     });
     contactsList.appendChild(div);
   });
 };
 
-const loadConversationMessages = (fid) => {
+const loadConversationMessages = (friendId) => {
   chatMessages.innerHTML = "";
-  const conv = messageHistory.filter(m => (m.userId === currentUser.id && m.recipientId === fid) || (m.userId === fid && m.recipientId === currentUser.id));
+  const conv = messageHistory.filter(m => (m.userId === currentUser.id && m.recipientId === friendId) || (m.userId === friendId && m.recipientId === currentUser.id));
   conv.forEach(m => addMessageToChat(m));
   observer.disconnect();
   observeNewMessages();
@@ -280,7 +268,7 @@ const loadConversationMessages = (fid) => {
 };
 
 // ========== PEDIDOS ==========
-const renderPendingRequests = () => {
+const renderPending = () => {
   pendingListDiv.innerHTML = "";
   if (!pendingRequests.length) {
     pendingListDiv.innerHTML = "<div style='font-size:0.8rem; color:var(--text-secondary);'>Nenhum pedido</div>";
@@ -299,56 +287,43 @@ const renderPendingRequests = () => {
         <button class="reject" data-from="${req.from.id}">❌</button>
       </div>
     `;
-    div.querySelector(".accept").addEventListener("click", () => respondToFriendRequest(req.from.id, true));
-    div.querySelector(".reject").addEventListener("click", () => respondToFriendRequest(req.from.id, false));
+    div.querySelector(".accept").addEventListener("click", () => respondToRequest(req.from.id, true));
+    div.querySelector(".reject").addEventListener("click", () => respondToRequest(req.from.id, false));
     pendingListDiv.appendChild(div);
   });
 };
+const respondToRequest = (from, accept) => ws.send(JSON.stringify({ type: "friend_request_response", fromUserId: from, accept }));
+const sendFriendRequest = uid => ws.send(JSON.stringify({ type: "friend_request", targetUserId: uid }));
 
-const respondToFriendRequest = (from, accept) => {
-  websocket.send(JSON.stringify({ type: "friend_request_response", fromUserId: from, accept }));
-};
-
-const sendFriendRequest = (uid) => {
-  websocket.send(JSON.stringify({ type: "friend_request", targetUserId: uid }));
-};
-
-// ========== AÇÕES DE MENSAGEM ==========
-const sendReaction = (mid, emoji, add) => {
-  if (!websocket) return;
-  websocket.send(JSON.stringify({ type: "reaction", messageId: mid, emoji, add }));
-};
-
+// ========== AÇÕES ==========
+const sendReaction = (mid, emoji, add) => ws?.send(JSON.stringify({ type: "reaction", messageId: mid, emoji, add }));
 const sendReadReceipt = () => {
-  if (!websocket || !activeContactId) return;
+  if (!ws || !activeContactId) return;
   const msgs = Array.from(chatMessages.children).reverse();
-  for (let msg of msgs) {
-    const id = msg.dataset.messageId;
-    if (id && messageHistory.find(m => m.id === id)?.userId !== currentUser.id) {
+  for (let m of msgs) {
+    const id = m.dataset.messageId;
+    if (id && messageHistory.find(msg => msg.id === id)?.userId !== currentUser.id) {
       if (lastReadId !== id) {
         lastReadId = id;
-        websocket.send(JSON.stringify({ type: "read_receipt", lastReadMessageId: id }));
+        ws.send(JSON.stringify({ type: "read_receipt", lastReadMessageId: id }));
       }
       break;
     }
   }
 };
-
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => { if (entry.isIntersecting) sendReadReceipt(); });
 }, { threshold: 0.5 });
-const observeNewMessages = () => {
-  document.querySelectorAll(".message").forEach(div => observer.observe(div));
-};
+const observeNewMessages = () => document.querySelectorAll(".message").forEach(div => observer.observe(div));
 
-const handleFileUpload = (file) => {
+const handleFileUpload = file => {
   if (!file) return;
-  if (!activeContactId) { alert("Selecione um amigo para enviar arquivo."); return; }
+  if (!activeContactId) { alert("Selecione um amigo"); return; }
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = e => {
     const data = e.target.result;
     const type = file.type.split("/")[0];
-    const message = {
+    ws.send(JSON.stringify({
       type: "file_message",
       recipientId: activeContactId,
       fileType: type,
@@ -356,26 +331,19 @@ const handleFileUpload = (file) => {
       fileData: data,
       thumbnail: type === "image" ? data : null,
       timestamp: Date.now(),
-      replyTo: replyToMessage ? replyToMessage.id : null,
-    };
-    websocket.send(JSON.stringify(message));
-    replyToMessage = null;
+      replyTo: replyToMsg ? replyToMsg.id : null,
+    }));
+    replyToMsg = null;
     const ind = document.getElementById("replyIndicator");
     if (ind) ind.remove();
   };
   reader.readAsDataURL(file);
 };
 
-const editMessage = (mid, newContent) => {
-  if (!websocket) return;
-  websocket.send(JSON.stringify({ type: "edit_message", messageId: mid, newContent }));
-};
-const deleteMessage = (mid) => {
-  if (!websocket) return;
-  websocket.send(JSON.stringify({ type: "delete_message", messageId: mid }));
-};
-const setReplyTo = (msg) => {
-  replyToMessage = msg;
+const editMessage = (mid, newContent) => ws?.send(JSON.stringify({ type: "edit_message", messageId: mid, newContent }));
+const deleteMessage = mid => ws?.send(JSON.stringify({ type: "delete_message", messageId: mid }));
+const setReplyTo = msg => {
+  replyToMsg = msg;
   let ind = document.getElementById("replyIndicator");
   if (ind) ind.remove();
   ind = document.createElement("div");
@@ -384,7 +352,7 @@ const setReplyTo = (msg) => {
   ind.innerHTML = `Respondendo a ${escapeHtml(msg.userName)}: "${escapeHtml(msg.content.substring(0, 40))}..." <button id="cancelReply">✖</button>`;
   chatInput.parentNode.insertBefore(ind, chatInput);
   document.getElementById("cancelReply")?.addEventListener("click", () => {
-    replyToMessage = null;
+    replyToMsg = null;
     ind.remove();
   });
   chatInput.focus();
@@ -393,10 +361,9 @@ const setReplyTo = (msg) => {
 // ========== BUSCA GLOBAL ==========
 const performGlobalSearch = () => {
   const q = globalSearchInput.value.trim();
-  if (!websocket) return;
-  websocket.send(JSON.stringify({ type: "search_users", query: q }));
+  ws?.send(JSON.stringify({ type: "search_users", query: q }));
 };
-const displaySearchResults = (users) => {
+const displaySearchResults = users => {
   globalSearchResults.innerHTML = "";
   if (!users.length) {
     globalSearchResults.innerHTML = "<div style='padding:8px;color:var(--text-secondary);'>Nenhum usuário encontrado.</div>";
@@ -421,46 +388,46 @@ const displaySearchResults = (users) => {
   });
 };
 
-// ========== PROCESSAR MENSAGENS DO SERVIDOR ==========
-const processMessage = (data) => {
+// ========== PROCESSAR MENSAGENS SERVIDOR ==========
+const processMessage = data => {
   switch (data.type) {
     case "login_success":
       currentUser = data.user;
       allFriends.clear();
       data.friends.forEach(f => allFriends.set(f.id, { name: f.name, avatar: f.avatar, isOnline: f.isOnline }));
       pendingRequests = data.pendingRequests;
-      renderPendingRequests();
+      renderPending();
       renderFriends();
       loginScreen.style.display = "none";
       chatScreen.style.display = "flex";
       currentUserAvatar.textContent = currentUser.avatar;
       currentUserName.textContent = currentUser.name;
       if (!getStoredSession() || getStoredSession().user.id !== currentUser.id) saveSession(currentUser, loginPasswordInput.value);
-      showConversationsView();
+      showConversations();
       break;
     case "friends_online":
       data.friends.forEach(f => { const ex = allFriends.get(f.id); if (ex) ex.isOnline = true; else allFriends.set(f.id, { ...f, isOnline: true }); });
       renderFriends();
       break;
     case "friend_status":
-      const f = allFriends.get(data.userId);
-      if (f) f.isOnline = data.isOnline;
+      const ff = allFriends.get(data.userId);
+      if (ff) ff.isOnline = data.isOnline;
       renderFriends();
       break;
     case "friend_request_received":
       pendingRequests.push({ from: data.from });
-      renderPendingRequests();
+      renderPending();
       break;
     case "friend_added":
       allFriends.set(data.friend.id, { ...data.friend, isOnline: false });
       pendingRequests = pendingRequests.filter(r => r.from.id !== data.friend.id);
-      renderPendingRequests();
+      renderPending();
       renderFriends();
       break;
     case "friend_request_rejected":
-      alert(`Pedido de amizade rejeitado por ${data.by}`);
+      alert(`Pedido rejeitado por ${data.by}`);
       pendingRequests = pendingRequests.filter(r => r.from.id !== data.by);
-      renderPendingRequests();
+      renderPending();
       break;
     case "history":
       messageHistory = data.messages;
@@ -475,21 +442,19 @@ const processMessage = (data) => {
       } else if (data.userId === currentUser.id && data.recipientId === activeContactId) {
         addMessageToChat(data);
       }
-      if (notificationsEnabled && data.userId !== currentUser.id && activeContactId === data.userId) {
-        new Audio("https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3").play().catch(e => console.log);
+      if (notifications && data.userId !== currentUser.id && activeContactId === data.userId) {
+        new Audio("https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3").play().catch(() => {});
       }
       break;
     case "message_edited":
-      const ed = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`);
-      if (ed) ed.innerHTML = escapeHtml(data.newContent);
+      document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`).innerHTML = escapeHtml(data.newContent);
       const idx = messageHistory.findIndex(m => m.id === data.messageId);
       if (idx !== -1) messageHistory[idx].content = data.newContent;
       break;
     case "message_deleted":
-      const del = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`);
-      if (del) del.innerHTML = "<em>Mensagem excluída</em>";
-      const dIdx = messageHistory.findIndex(m => m.id === data.messageId);
-      if (dIdx !== -1) messageHistory[dIdx].deleted = true;
+      document.querySelector(`.message[data-message-id="${data.messageId}"] .message__text`).innerHTML = "<em>Mensagem excluída</em>";
+      const di = messageHistory.findIndex(m => m.id === data.messageId);
+      if (di !== -1) messageHistory[di].deleted = true;
       break;
     case "reaction_update":
       const reactDiv = document.querySelector(`.message[data-message-id="${data.messageId}"] .message__reactions`);
@@ -504,7 +469,7 @@ const processMessage = (data) => {
             const span = document.createElement("span");
             span.classList.add("message__reaction");
             span.textContent = `${emoji} ${users.length}`;
-            span.addEventListener("click", (e) => {
+            span.addEventListener("click", e => {
               e.stopPropagation();
               const already = users.includes(currentUser.id);
               sendReaction(data.messageId, emoji, !already);
@@ -539,47 +504,42 @@ const processMessage = (data) => {
   }
 };
 
-// ========== ENVIO DE MENSAGEM ==========
-const sendMessage = (content) => {
+// ========== ENVIO MENSAGEM ==========
+const sendMessage = content => {
   if (!content.trim()) return;
-  if (!activeContactId) { alert("Selecione um amigo para conversar."); return; }
-  const msg = {
+  if (!activeContactId) { alert("Selecione um amigo"); return; }
+  ws.send(JSON.stringify({
     type: "message",
     recipientId: activeContactId,
     content: content.trim(),
     timestamp: Date.now(),
-    replyTo: replyToMessage ? replyToMessage.id : null,
-  };
-  websocket.send(JSON.stringify(msg));
-  replyToMessage = null;
+    replyTo: replyToMsg ? replyToMsg.id : null,
+  }));
+  replyToMsg = null;
   const ind = document.getElementById("replyIndicator");
   if (ind) ind.remove();
 };
 
-const sendTyping = (isTyping) => {
-  if (!websocket || !activeContactId) return;
-  websocket.send(JSON.stringify({ type: "typing", recipientId: activeContactId, isTyping }));
+const sendTyping = isTyping => {
+  if (!ws || !activeContactId) return;
+  ws.send(JSON.stringify({ type: "typing", recipientId: activeContactId, isTyping }));
 };
 
 // ========== WEBSOCKET ==========
 const initWebSocket = (name, pwd, avatar) => {
-  const url = getWebSocketUrl();
-  websocket = new WebSocket(url);
-  websocket.onopen = () => {
-    websocket.send(JSON.stringify({ type: "login", name, password: pwd, avatar }));
-  };
-  websocket.onmessage = (e) => {
+  const url = getWsUrl();
+  ws = new WebSocket(url);
+  ws.onopen = () => ws.send(JSON.stringify({ type: "login", name, password: pwd, avatar }));
+  ws.onmessage = e => {
     const data = JSON.parse(e.data);
     if (data.type === "login_failed") { alert(data.reason); clearSession(); return; }
     processMessage(data);
   };
-  websocket.onclose = () => {
-    if (currentUser) setTimeout(() => initWebSocket(name, pwd, avatar), 3000);
-  };
-  websocket.onerror = (err) => console.error("WebSocket error", err);
+  ws.onclose = () => { if (currentUser) setTimeout(() => initWebSocket(name, pwd, avatar), 3000); };
+  ws.onerror = err => console.error("WebSocket error", err);
 };
 
-const handleLogin = (e) => {
+const handleLogin = e => {
   e.preventDefault();
   const name = loginNameInput.value.trim();
   const pwd = loginPasswordInput.value.trim();
@@ -607,7 +567,7 @@ const renderAvatarOptions = () => {
 const showEmojiPicker = () => {
   emojiPicker.style.display = emojiPicker.style.display === "none" ? "grid" : "none";
   if (!emojiPicker.children.length) {
-    const common = ["😀", "😂", "🥰", "😎", "😢", "👍", "🔥", "❤️", "🎉", "💯", "😡", "🥺"];
+    const common = ["😀","😂","🥰","😎","😢","👍","🔥","❤️","🎉","💯","😡","🥺"];
     common.forEach(e => {
       const span = document.createElement("span");
       span.textContent = e;
@@ -621,25 +581,25 @@ const showEmojiPicker = () => {
   }
 };
 
-// ========== MODAIS E MENUS ==========
-const openSettingsModal = () => settingsModal.style.display = "flex";
-const closeSettingsModal = () => settingsModal.style.display = "none";
+const openSettings = () => settingsModal.style.display = "flex";
+const closeSettings = () => settingsModal.style.display = "none";
 const saveTheme = () => { currentTheme = document.getElementById("themeSelect").value; applyTheme(); saveSettings(); };
-const saveNotifications = () => { notificationsEnabled = document.getElementById("notificationsToggle").checked; saveSettings(); };
+const saveNotifications = () => { notifications = document.getElementById("notificationsToggle").checked; saveSettings(); };
 const saveShowTime = () => { showTime = document.getElementById("showTimeToggle").checked; saveSettings(); if (activeContactId) loadConversationMessages(activeContactId); };
 const clearAllHistory = () => {
   if (confirm("Limpar todo o histórico?")) {
-    if (websocket) websocket.send(JSON.stringify({ type: "clear_history" }));
+    ws?.send(JSON.stringify({ type: "clear_history" }));
     chatMessages.innerHTML = "";
     messageHistory = [];
   }
 };
 
+// Menus
 const showContextMenu = (x, y) => { chatContextMenu.style.display = "block"; chatContextMenu.style.left = `${x}px`; chatContextMenu.style.top = `${y}px`; };
 const hideContextMenu = () => { chatContextMenu.style.display = "none"; };
 const clearConversation = () => {
   if (activeContactId && confirm("Limpar conversa?")) {
-    if (websocket) websocket.send(JSON.stringify({ type: "clear_conversation", withUser: activeContactId }));
+    ws?.send(JSON.stringify({ type: "clear_conversation", withUser: activeContactId }));
     chatMessages.innerHTML = "";
     messageHistory = messageHistory.filter(m => !(m.userId === currentUser.id && m.recipientId === activeContactId) && !(m.userId === activeContactId && m.recipientId === currentUser.id));
   }
@@ -647,9 +607,10 @@ const clearConversation = () => {
 const blockUser = () => { if (activeContactId) alert(`Usuário ${allFriends.get(activeContactId)?.name} bloqueado.`); };
 const reportUser = () => { if (activeContactId) alert(`Usuário ${allFriends.get(activeContactId)?.name} reportado.`); };
 
-const showMessageContextMenu = (e, msg) => {
+let currentMessage = null;
+const showMessageMenu = (e, msg) => {
   e.preventDefault();
-  if (currentMessage) hideMessageContextMenu();
+  if (currentMessage) hideMessageMenu();
   currentMessage = msg;
   messageContextMenu.style.display = "block";
   messageContextMenu.style.left = `${e.pageX}px`;
@@ -658,19 +619,19 @@ const showMessageContextMenu = (e, msg) => {
   document.getElementById("editMsgBtn").style.display = isOwner ? "block" : "none";
   document.getElementById("deleteMsgBtn").style.display = isOwner ? "block" : "none";
 };
-const hideMessageContextMenu = () => { messageContextMenu.style.display = "none"; currentMessage = null; };
-const handleReply = () => { if (currentMessage && !currentMessage.deleted) { setReplyTo(currentMessage); hideMessageContextMenu(); } };
+const hideMessageMenu = () => { messageContextMenu.style.display = "none"; currentMessage = null; };
+const handleReply = () => { if (currentMessage && !currentMessage.deleted) { setReplyTo(currentMessage); hideMessageMenu(); } };
 const handleEdit = () => {
   if (currentMessage && currentMessage.userId === currentUser.id && !currentMessage.deleted) {
     const newC = prompt("Editar mensagem:", currentMessage.content);
     if (newC && newC.trim()) editMessage(currentMessage.id, newC.trim());
-    hideMessageContextMenu();
+    hideMessageMenu();
   }
 };
 const handleDelete = () => {
-  if (currentMessage && currentMessage.userId === currentUser.id && confirm("Excluir esta mensagem?")) {
+  if (currentMessage && currentMessage.userId === currentUser.id && confirm("Excluir?")) {
     deleteMessage(currentMessage.id);
-    hideMessageContextMenu();
+    hideMessageMenu();
   }
 };
 const handleReact = () => {
@@ -679,10 +640,10 @@ const handleReact = () => {
     reactionPicker.style.display = "flex";
     reactionPicker.style.left = `${rect.left}px`;
     reactionPicker.style.top = `${rect.top - 40}px`;
-    hideMessageContextMenu();
+    hideMessageMenu();
   }
 };
-const pickReaction = (emoji) => {
+const pickReaction = emoji => {
   if (currentMessage) {
     const already = currentMessage.reactions?.[emoji]?.includes(currentUser.id);
     sendReaction(currentMessage.id, emoji, !already);
@@ -692,49 +653,53 @@ const pickReaction = (emoji) => {
 
 // ========== AUTO-LOGIN ==========
 const attemptAutoLogin = () => {
-  const session = getStoredSession();
-  if (session && session.user && session.password) {
-    loginNameInput.value = session.user.name;
-    loginPasswordInput.value = session.password;
-    initWebSocket(session.user.name, session.password, session.user.avatar);
+  const s = getStoredSession();
+  if (s && s.user && s.password) {
+    loginNameInput.value = s.user.name;
+    loginPasswordInput.value = s.password;
+    initWebSocket(s.user.name, s.password, s.user.avatar);
   }
 };
 
-// ========== EVENT LISTENERS ==========
+// ========== EVENTOS ==========
 loginForm.addEventListener("submit", handleLogin);
-chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendMessage(chatInput.value); chatInput.value = ""; });
-chatInput.addEventListener("input", () => { if (typingTimeout) clearTimeout(typingTimeout); sendTyping(true); typingTimeout = setTimeout(() => sendTyping(false), 1000); });
+chatForm.addEventListener("submit", e => { e.preventDefault(); sendMessage(chatInput.value); chatInput.value = ""; });
+chatInput.addEventListener("input", () => {
+  if (typingTimeout) clearTimeout(typingTimeout);
+  sendTyping(true);
+  typingTimeout = setTimeout(() => sendTyping(false), 1000);
+});
 emojiButton.addEventListener("click", showEmojiPicker);
-document.addEventListener("click", (e) => {
+document.addEventListener("click", e => {
   if (!emojiButton.contains(e.target) && !emojiPicker.contains(e.target)) emojiPicker.style.display = "none";
   if (!chatMenuButton.contains(e.target) && !chatContextMenu.contains(e.target)) hideContextMenu();
-  if (!messageContextMenu.contains(e.target)) hideMessageContextMenu();
+  if (!messageContextMenu.contains(e.target)) hideMessageMenu();
   if (!reactionPicker.contains(e.target)) reactionPicker.style.display = "none";
 });
-settingsButton.addEventListener("click", openSettingsModal);
-closeModalBtn.addEventListener("click", closeSettingsModal);
-window.addEventListener("click", (e) => { if (e.target === settingsModal) closeSettingsModal(); });
+settingsButton.addEventListener("click", openSettings);
+closeModalBtn.addEventListener("click", closeSettings);
+window.addEventListener("click", e => { if (e.target === settingsModal) closeSettings(); });
 document.getElementById("themeSelect").addEventListener("change", saveTheme);
 document.getElementById("notificationsToggle").addEventListener("change", saveNotifications);
 document.getElementById("showTimeToggle").addEventListener("change", saveShowTime);
 document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
 logoutBtn.addEventListener("click", () => { if (confirm("Sair da conta?")) logout(); });
-chatMenuButton.addEventListener("click", (e) => { e.stopPropagation(); const rect = chatMenuButton.getBoundingClientRect(); showContextMenu(rect.right - 180, rect.bottom + 5); });
+chatMenuButton.addEventListener("click", e => { e.stopPropagation(); const rect = chatMenuButton.getBoundingClientRect(); showContextMenu(rect.right - 180, rect.bottom + 5); });
 document.getElementById("clearConversationBtn").addEventListener("click", () => { clearConversation(); hideContextMenu(); });
 document.getElementById("blockUserBtn").addEventListener("click", () => { blockUser(); hideContextMenu(); });
 document.getElementById("reportUserBtn").addEventListener("click", () => { reportUser(); hideContextMenu(); });
 attachButton.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", (e) => { if (e.target.files.length) handleFileUpload(e.target.files[0]); fileInput.value = ""; });
+fileInput.addEventListener("change", e => { if (e.target.files.length) handleFileUpload(e.target.files[0]); fileInput.value = ""; });
 document.getElementById("replyMsgBtn").addEventListener("click", handleReply);
 document.getElementById("editMsgBtn").addEventListener("click", handleEdit);
 document.getElementById("deleteMsgBtn").addEventListener("click", handleDelete);
 document.getElementById("reactMsgBtn").addEventListener("click", handleReact);
 reactionPicker.querySelectorAll("span").forEach(span => span.addEventListener("click", () => pickReaction(span.textContent)));
-searchContactsInput.addEventListener("input", (e) => renderFriends(e.target.value));
+searchContactsInput.addEventListener("input", e => renderFriends(e.target.value));
 globalSearchButton.addEventListener("click", performGlobalSearch);
-globalSearchInput.addEventListener("keypress", (e) => { if (e.key === "Enter") performGlobalSearch(); });
-globalSearchInput.addEventListener("focus", () => performGlobalSearch());
-if (backButton) backButton.addEventListener("click", showConversationsView);
+globalSearchInput.addEventListener("keypress", e => { if (e.key === "Enter") performGlobalSearch(); });
+globalSearchInput.addEventListener("focus", performGlobalSearch);
+if (backButton) backButton.addEventListener("click", showConversations);
 window.addEventListener("resize", () => { if (!isMobile()) document.body.classList.remove("chat-active"); });
 
 // ========== INICIALIZAÇÃO ==========

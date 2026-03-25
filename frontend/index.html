@@ -10,8 +10,8 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar / Lista de conversas -->
-    <aside class="sidebar conversations-view" id="conversationsView">
+    <!-- Lista de conversas -->
+    <aside class="sidebar" id="conversationsView">
       <div class="sidebar__header">
         <div class="user-profile">
           <div class="avatar" id="currentUserAvatar"></div>
@@ -21,16 +21,13 @@
           <span class="material-symbols-outlined" id="settingsButton">settings</span>
         </div>
       </div>
-
       <div class="sidebar__search">
         <div class="search-wrapper">
           <input type="text" id="searchContacts" placeholder="Pesquisar amigos">
           <span class="material-symbols-outlined search-icon">search</span>
         </div>
       </div>
-
       <div class="sidebar__contacts" id="contactsList"></div>
-
       <div class="sidebar__global-search">
         <h4>Encontrar novos amigos</h4>
         <div class="search-wrapper">
@@ -39,7 +36,6 @@
         </div>
         <div id="globalSearchResults" class="global-search-results"></div>
       </div>
-
       <div class="sidebar__pending" id="pendingRequests">
         <h4>Pedidos de amizade</h4>
         <div id="pendingList"></div>
@@ -47,10 +43,10 @@
     </aside>
 
     <!-- Área do chat -->
-    <main class="chat-area chat-view" id="chatView">
+    <main class="chat-area" id="chatView">
       <header class="chat__header">
         <div class="chat__header-info">
-          <button class="back-button" id="backButton" aria-label="Voltar para conversas">
+          <button class="back-button" id="backButton" aria-label="Voltar">
             <span class="material-symbols-outlined">arrow_back</span>
           </button>
           <div class="avatar" id="chatHeaderAvatar"></div>
@@ -63,9 +59,7 @@
           <span class="material-symbols-outlined" id="chatMenuButton">more_vert</span>
         </div>
       </header>
-
       <div class="chat__messages" id="chatMessages"></div>
-
       <div class="chat__input-area">
         <button class="attach-button" id="attachButton">
           <span class="material-symbols-outlined">attach_file</span>
@@ -84,7 +78,7 @@
     </main>
   </div>
 
-  <!-- Modal de Configurações -->
+  <!-- Modal Configurações -->
   <div id="settingsModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -95,21 +89,21 @@
         <div class="setting-item">
           <label>Tema</label>
           <select id="themeSelect">
-            <option value="dark">Escuro (padrão)</option>
+            <option value="dark">Escuro</option>
             <option value="light">Claro</option>
           </select>
         </div>
         <div class="setting-item">
           <label>Notificações</label>
-          <input type="checkbox" id="notificationsToggle" checked> <span>Ativar sons e notificações</span>
+          <input type="checkbox" id="notificationsToggle" checked> <span>Ativar sons</span>
         </div>
         <div class="setting-item">
-          <label>Exibir hora nas mensagens</label>
+          <label>Exibir hora</label>
           <input type="checkbox" id="showTimeToggle" checked> <span>Sim</span>
         </div>
-        <button id="clearHistoryBtn" class="danger-btn">Limpar histórico de todas as conversas</button>
-        <hr style="margin: 20px 0; border-color: var(--border-color);">
-        <button id="logoutBtn" class="danger-btn" style="background-color: #d32f2f;">Sair da conta</button>
+        <button id="clearHistoryBtn" class="danger-btn">Limpar todo histórico</button>
+        <hr style="margin: 20px 0;">
+        <button id="logoutBtn" class="danger-btn">Sair da conta</button>
       </div>
     </div>
   </div>
@@ -118,11 +112,10 @@
   <div id="chatContextMenu" class="context-menu" style="display: none;">
     <ul>
       <li id="clearConversationBtn">Limpar conversa</li>
-      <li id="blockUserBtn">Bloquear usuário</li>
+      <li id="blockUserBtn">Bloquear</li>
       <li id="reportUserBtn">Denunciar</li>
     </ul>
   </div>
-
   <div id="messageContextMenu" class="context-menu" style="display: none;">
     <ul>
       <li id="replyMsgBtn">Responder</li>
@@ -131,11 +124,9 @@
       <li id="reactMsgBtn">Reagir</li>
     </ul>
   </div>
-
   <div id="reactionPicker" class="reaction-picker" style="display: none;">
     <span>👍</span><span>❤️</span><span>😂</span><span>😮</span><span>😢</span><span>👎</span>
   </div>
-
   <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*,application/pdf">
   <script src="./js/scripts.js"></script>
 </body>

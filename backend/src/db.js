@@ -4,9 +4,7 @@ const path = require('path');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 let users = {};
 if (fs.existsSync(USERS_FILE)) {
@@ -21,13 +19,8 @@ function saveUsers() {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
-function getUserById(id) {
-  return users[id];
-}
-
-function getUserByUsername(username) {
-  return Object.values(users).find(u => u.name === username);
-}
+function getUserById(id) { return users[id]; }
+function getUserByUsername(name) { return Object.values(users).find(u => u.name === name); }
 
 function createUser(id, name, password, avatar) {
   if (getUserByUsername(name)) return null;
@@ -48,9 +41,7 @@ function updateUser(user) {
   saveUsers();
 }
 
-function getAllUsers() {
-  return users;
-}
+function getAllUsers() { return users; }
 
 module.exports = {
   getUserById,
