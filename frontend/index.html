@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" />
   <link rel="stylesheet" href="./css/style.css">
@@ -10,8 +10,8 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar">
+    <!-- Sidebar / Lista de conversas (agora controlada por classe .conversations-view) -->
+    <aside class="sidebar conversations-view" id="conversationsView">
       <div class="sidebar__header">
         <div class="user-profile">
           <div class="avatar" id="currentUserAvatar"></div>
@@ -48,57 +48,42 @@
       </div>
     </aside>
 
-    <!-- Área principal -->
-    <main class="chat-area">
-      <!-- Tela de login -->
-      <section class="login" id="loginScreen">
-        <div class="login__card">
-          <h2>Converse&Connect</h2>
-          <form class="login__form" id="loginForm">
-            <input type="text" class="login__input" placeholder="Nome de usuário" id="loginName" required autocomplete="off">
-            <input type="password" class="login__input" placeholder="Senha" id="loginPassword" required>
-            <div class="avatar-picker">
-              <label>Escolha seu avatar (apenas para novos usuários):</label>
-              <div class="avatar-options" id="avatarOptions"></div>
-            </div>
-            <button type="submit" class="login__button">Entrar / Registrar</button>
-          </form>
-        </div>
-      </section>
-
-      <!-- Interface do chat -->
-      <section class="chat" id="chatScreen" style="display: none;">
-        <header class="chat__header">
-          <div class="chat__header-info">
-            <div class="avatar" id="chatHeaderAvatar"></div>
-            <div>
-              <h3 id="chatHeaderName">Selecione um amigo</h3>
-              <span id="chatHeaderStatus">online</span>
-            </div>
-          </div>
-          <div class="chat__header-actions">
-            <span class="material-symbols-outlined" id="chatMenuButton">more_vert</span>
-          </div>
-        </header>
-
-        <div class="chat__messages" id="chatMessages"></div>
-
-        <div class="chat__input-area">
-          <button class="attach-button" id="attachButton">
-            <span class="material-symbols-outlined">attach_file</span>
+    <!-- Área principal do chat (agora com classe .chat-view) -->
+    <main class="chat-area chat-view" id="chatView">
+      <header class="chat__header">
+        <div class="chat__header-info">
+          <!-- Botão de voltar (mobile) -->
+          <button class="back-button" id="backButton" aria-label="Voltar para conversas">
+            <span class="material-symbols-outlined">arrow_back</span>
           </button>
-          <button class="emoji-button" id="emojiButton">
-            <span class="material-symbols-outlined">sentiment_satisfied</span>
-          </button>
-          <form class="chat__form" id="chatForm">
-            <input type="text" class="chat__input" id="chatInput" placeholder="Digite uma mensagem" autocomplete="off">
-            <button type="submit" class="chat__button">
-              <span class="material-symbols-outlined">send</span>
-            </button>
-          </form>
-          <div class="emoji-picker" id="emojiPicker" style="display: none;"></div>
+          <div class="avatar" id="chatHeaderAvatar"></div>
+          <div>
+            <h3 id="chatHeaderName">Selecione um amigo</h3>
+            <span id="chatHeaderStatus">online</span>
+          </div>
         </div>
-      </section>
+        <div class="chat__header-actions">
+          <span class="material-symbols-outlined" id="chatMenuButton">more_vert</span>
+        </div>
+      </header>
+
+      <div class="chat__messages" id="chatMessages"></div>
+
+      <div class="chat__input-area">
+        <button class="attach-button" id="attachButton">
+          <span class="material-symbols-outlined">attach_file</span>
+        </button>
+        <button class="emoji-button" id="emojiButton">
+          <span class="material-symbols-outlined">sentiment_satisfied</span>
+        </button>
+        <form class="chat__form" id="chatForm">
+          <input type="text" class="chat__input" id="chatInput" placeholder="Digite uma mensagem" autocomplete="off">
+          <button type="submit" class="chat__button">
+            <span class="material-symbols-outlined">send</span>
+          </button>
+        </form>
+        <div class="emoji-picker" id="emojiPicker" style="display: none;"></div>
+      </div>
     </main>
   </div>
 

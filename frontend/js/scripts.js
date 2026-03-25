@@ -1,6 +1,6 @@
 // ========== CONFIGURAÇÃO DO WEBSOCKET ==========
-// Substitua pela URL do seu backend no Render (ex: "wss://chat-backend-pt9f.onrender.com")
-const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com"; // ALTERE AQUI
+// 🔴 ALTERE ESTA URL PARA A URL DO SEU BACKEND NO RENDER (ex: "wss://chat-backend-pt9f.onrender.com")
+const PROD_WS_URL = "wss://chat-backend-pt9f.onrender.com"; // <--- SUBSTITUA AQUI
 
 // ========== Elementos do DOM ==========
 const loginScreen = document.getElementById("loginScreen");
@@ -35,6 +35,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 const globalSearchInput = document.getElementById("globalSearchInput");
 const globalSearchButton = document.getElementById("globalSearchButton");
 const globalSearchResults = document.getElementById("globalSearchResults");
+const backButton = document.getElementById("backButton");
 
 // ========== Função para obter a URL correta ==========
 const getWebSocketUrl = () => {
@@ -44,6 +45,23 @@ const getWebSocketUrl = () => {
   }
   return PROD_WS_URL;
 };
+
+// ========== Controle de navegação mobile ==========
+const isMobile = () => window.innerWidth <= 768;
+
+function showConversationsView() {
+  if (isMobile()) {
+    document.body.classList.remove("chat-active");
+    // Reset activeContactId para não ficar selecionado
+    // activeContactId = null;
+  }
+}
+
+function showChatView() {
+  if (isMobile()) {
+    document.body.classList.add("chat-active");
+  }
+}
 
 // ========== Variáveis Globais ==========
 const AVATAR_LIST = ["😀", "😎", "🥳", "😍", "🐱", "🐶", "🦊", "🐼", "🍕", "⚽"];
@@ -143,6 +161,7 @@ const logout = () => {
   loginNameInput.value = "";
   loginPasswordInput.value = "";
   settingsModal.style.display = "none";
+  showConversationsView();
 };
 
 // ========== Criação de Elemento de Mensagem ==========
@@ -286,6 +305,10 @@ const renderFriends = (filter = "") => {
     contactDiv.classList.add("contact-item");
     if (activeContactId === friend.id) contactDiv.classList.add("active");
 
+    contactDiv.dataset.friendId = friend.id;
+    contactDiv.dataset.friendName = friend.name;
+    contactDiv.dataset.friendAvatar = friend.avatar;
+
     const avatarDiv = document.createElement("div");
     avatarDiv.classList.add("avatar");
     avatarDiv.textContent = friend.avatar;
@@ -300,27 +323,26 @@ const renderFriends = (filter = "") => {
     contactDiv.appendChild(avatarDiv);
     contactDiv.appendChild(infoDiv);
 
-    // Handler de clique – usar uma closure para capturar o friend.id
-    contactDiv.addEventListener("click", (function(friendId, friendName, friendAvatar) {
-      return function() {
-        console.log("Clique no amigo:", friendId, friendName);
-        activeContactId = friendId;
-        // Atualizar visualmente a lista
-        renderFriends(searchContactsInput.value);
-        // Atualizar cabeçalho
-        chatHeaderName.textContent = friendName;
-        chatHeaderAvatar.textContent = friendAvatar;
-        // Carregar mensagens
-        loadConversationMessages(friendId);
-      };
-    })(friend.id, friend.name, friend.avatar));
+    contactDiv.addEventListener("click", (e) => {
+      const friendId = e.currentTarget.dataset.friendId;
+      const friendName = e.currentTarget.dataset.friendName;
+      const friendAvatar = e.currentTarget.dataset.friendAvatar;
+
+      if (!friendId) return;
+
+      activeContactId = friendId;
+      renderFriends(searchContactsInput.value);
+      chatHeaderName.textContent = friendName;
+      chatHeaderAvatar.textContent = friendAvatar;
+      loadConversationMessages(friendId);
+      showChatView(); // Abre a conversa no mobile
+    });
 
     contactsList.appendChild(contactDiv);
   });
 };
 
 const loadConversationMessages = (friendId) => {
-  console.log("Carregando conversa com:", friendId);
   chatMessages.innerHTML = "";
   const convMessages = messageHistory.filter(msg => 
     (msg.userId === currentUser.id && msg.recipientId === friendId) ||
@@ -530,7 +552,8 @@ const processMessage = (data) => {
       if (!storedSession || storedSession.user.id !== currentUser.id) {
         saveSession(currentUser, loginPasswordInput.value);
       }
-      console.log("Login bem-sucedido. Amigos:", allFriends.size);
+      // Se estiver em mobile, garante que estamos na lista de conversas
+      showConversationsView();
       break;
 
     case "friends_online":
@@ -974,7 +997,20 @@ globalSearchInput.addEventListener("focus", () => {
   performGlobalSearch();
 });
 
+// Botão voltar no mobile
+backButton.addEventListener("click", () => {
+  showConversationsView();
+});
+
 // ========== Inicialização ==========
 renderAvatarOptions();
 loadSettings();
 attemptAutoLogin();
+
+// Ajuste de responsividade ao redimensionar
+window.addEventListener("resize", () => {
+  if (!isMobile()) {
+    // Se a janela aumentar para desktop, força a lista de conversas a ficar visível (sem overrides)
+    document.body.classList.remove("chat-active");
+  }
+});
